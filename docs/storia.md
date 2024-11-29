@@ -24,6 +24,29 @@ In questo stesso momento, le porte della capitale vengono sigillate: nulla può 
 
 Sbagliando si impara. Errare è umano, perseverare è diabolico. Chi è causa del proprio male, pianga sé stesso.
 
+Linee guida:
+
+1. Si segue un personaggio che si muove in una certa traiettoria;
+
+2. Ogni personaggio cambia la propria tratiettoria solo quando incontra qualcosa sulla propria strada;
+
+3. Ogni personaggio dal proprio punto di vista si percepisce come il protagonista;
+
+4. Ogni cosa nella storia è una risposta ad una domanda, ad esempio:
+
+    - Di chi si parla?
+    - Cosa vuole?
+    - Perché non lo può ottenere?
+    - Cosa fa a riguardo?
+    - Perché non funziona?
+    - Come finisce?
+
+5. Divisione in:
+
+    - Trama
+    - Personaggi
+    - Mitologia
+
 Note:
 
 1. L'imperatore (di ???) non si palesa **mai**;
