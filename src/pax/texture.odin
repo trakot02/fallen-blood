@@ -10,6 +10,7 @@ import sdli "vendor:sdl2/image"
 Texture :: struct
 {
     value: ^sdl.Texture,
+    size: [2]i32,
 }
 
 texture_create :: proc(self: ^sdl.Renderer)
@@ -24,7 +25,7 @@ texture_destroy :: proc(self: ^sdl.Renderer)
 
 texture_load :: proc(self: ^sdl.Renderer, name: string) -> (Texture, Load_Error)
 {
-    result := Texture {nil}
+    result := Texture {nil, {0, 0}}
 
     if self == nil {
         fmt.printf("ERROR: Null renderer\n")
@@ -50,7 +51,14 @@ texture_load :: proc(self: ^sdl.Renderer, name: string) -> (Texture, Load_Error)
         return result, .SOME
     }
 
-    result.value = value
+    size := sdl.Point {}
+
+    assert(sdl.QueryTexture(value, nil, nil, &size.x, &size.y) == 0,
+        sdl.GetErrorString())
+
+    result.value  = value
+    result.size.x = i32(size.x)
+    result.size.y = i32(size.y)
 
     return result, nil
 }

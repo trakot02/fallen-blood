@@ -15,6 +15,9 @@ PLAYER_IDLE_DOWN_0 :: [4]i32 { 0,  0, 16, 16}
 PLAYER_POINT       :: [2]f32 {16, 16}
 PLAYER_SPEED       :: 128
 
+GROUND_TEXTURE :: "data/scene/title/ground.png"
+GROUND_GRID    :: "data/scene/title/ground.csv"
+
 Title_Scene :: struct
 {
     window_size: [2]i32,
@@ -25,7 +28,8 @@ Title_Scene :: struct
     window: ^sdl.Window,
     render: ^sdl.Renderer,
 
-    tex_registry: pax.Registry(pax.Texture),
+    txtr_registry:  pax.Registry(pax.Texture),
+    grid_registry: pax.Registry(pax.Grid),
 
     // replace with archetypes
     sprites:   [dynamic]Sprite,
@@ -39,10 +43,26 @@ title_scene_load :: proc(scene: ^Title_Scene) -> bool
     inject_at(&scene.movements, PLAYER, Movement {})
     inject_at(&scene.inputs,    PLAYER, Input {})
 
-    texture, error := pax.registry_load(&scene.tex_registry, PLAYER_TEXTURE)
+    texture, error := pax.registry_load(&scene.txtr_registry, PLAYER_TEXTURE)
 
     if error != nil {
         fmt.printf("Unable to find '%v'\n", PLAYER_TEXTURE)
+
+        return false
+    }
+
+    _, err1 := pax.registry_load(&scene.txtr_registry, GROUND_TEXTURE)
+
+    if err1 != nil {
+        fmt.printf("Unable to find '%v'\n", GROUND_TEXTURE)
+
+        return false
+    }
+
+    _, err2 := pax.registry_load(&scene.grid_registry, GROUND_GRID)
+
+    if err2 != nil {
+        fmt.printf("Unable to find '%v'\n", GROUND_GRID)
 
         return false
     }
@@ -57,7 +77,11 @@ title_scene_load :: proc(scene: ^Title_Scene) -> bool
     player_mov.state  = .STILL
 
     scene.camera.target = PLAYER_POINT
-    scene.camera.offset = PLAYER_POINT
+
+    scene.camera.offset = [2]f32 {
+        f32(WINDOW_SIZE.x) / 2 - f32(TILE_SIZE.x) / 2,
+        f32(WINDOW_SIZE.y) / 2 - f32(TILE_SIZE.y) / 2,
+    }
 
     return true
 }
@@ -72,9 +96,11 @@ title_scene_start :: proc(scene: ^Title_Scene, stage: ^Game) -> bool
     scene.window      = stage.window
     scene.render      = stage.render
 
-    scene.tex_registry = pax.texture_registry(scene.render)
+    scene.txtr_registry = pax.texture_registry(scene.render)
+    scene.grid_registry = pax.grid_registry()
 
-    pax.registry_create(&scene.tex_registry)
+    pax.registry_create(&scene.txtr_registry)
+    pax.registry_create(&scene.grid_registry)
 
     if title_scene_load(scene) == false {
         return false
@@ -181,12 +207,33 @@ title_scene_step :: proc(scene: ^Title_Scene, delta: f32)
             player_mov.state = .STILL
         }
     }
+
+    scene.camera.target = player_mov.point
 }
 
 title_scene_draw :: proc(scene: ^Title_Scene, extra: f32)
 {
     assert(sdl.RenderClear(scene.render) == 0,
         sdl.GetErrorString())
+
+    ground_tex, _ := pax.registry_load(&scene.txtr_registry, GROUND_TEXTURE)
+    ground_lyr, _ := pax.registry_load(&scene.grid_registry, GROUND_GRID)
+
+    for value, index in ground_lyr.value {
+        ground_spr := Sprite {
+            ground_tex, {0, 0, scene.tile_size.x, scene.tile_size.y}
+        }
+
+        ground_spr.frame.x = (i32(value) % (ground_tex.size.x / scene.tile_size.x)) * scene.tile_size.x
+        ground_spr.frame.y = (i32(value) / (ground_tex.size.x / scene.tile_size.y)) * scene.tile_size.y
+
+        point := [2]f32 {
+            f32((i32(index) % ground_lyr.size.x) * scene.tile_size.x),
+            f32((i32(index) / ground_lyr.size.x) * scene.tile_size.y),
+        }
+
+        sprite_draw(&ground_spr, &scene.camera, point)
+    }
 
     player_mov := scene.movements[PLAYER]
     player_spr := scene.sprites[PLAYER]
