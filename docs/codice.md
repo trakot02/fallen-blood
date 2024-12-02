@@ -1,5 +1,7 @@
 ### Attori
 
+Gli attori sono suddivisi in gruppi, ogni gruppo non è altro che un raggruppamento di più array dinamici del tipo:
+
 ```odin
 Trait_A :: struct {}
 Trait_B :: struct {}
@@ -8,41 +10,29 @@ Group_X :: struct {
     a: [dynamic]Trait_A,
     b: [dynamic]Trait_B,
 }
+```
 
+Dopodiché nell'aggiornamento delle scene i gruppi vengono aggiornati a mano.
+
+```odin
 group_x_step :: proc(group: ^Group_X, delta: f64)
 {
-    for &a, i in group.a {
-        b := group.b[i]
+    actor : i32
 
-        // ...
-    }
+    for ; actor < group.size; actor += 1 {
+        a := group.a[actor]
+        b := group.b[actor]
 
-}
-
-Group_Y :: struct {
-    a: [dynamic]Trait_A,
-}
-
-group_y_step :: proc(group: ^Group_Y, delta: f64)
-{
-    for &a, i in group.a {
-        // ...
+        // ecc.
     }
 }
+```
 
-Scene_1 :: struct {
-    x: Group_X,
-    y: Group_Y,
+Ogni attore esiste solamente all'interno del proprio gruppo. Ogni entità quindi è una coppia della forma:
 
-    ground: Grid_Layer,
-    object: Grid_Layer,
-    entity: Grid_Layer,
-    height: Grid_Layer,
-}
-
-scene_1_step :: proc(scene: ^Scene_1, delta: f64)
-{
-    group_x_step(group.x, delta)
-    group_y_step(group.y, delta)
+```odin
+Actor :: struct {
+    group: i32,
+    index: i32,
 }
 ```
