@@ -17,10 +17,10 @@ PLAYER_SPEED       :: 128
 
 Title_Scene :: struct
 {
-    scale: i32,
-
     window_size: [2]i32,
     tile_size:   [2]i32,
+
+    camera: pax.Camera,
 
     window: ^sdl.Window,
     render: ^sdl.Renderer,
@@ -52,16 +52,21 @@ title_scene_load :: proc(scene: ^Title_Scene) -> bool
     player_spr.frame    = PLAYER_IDLE_DOWN_0
 
     player_mov       := &scene.movements[PLAYER]
-    player_mov.point  = PLAYER_POINT * f32(scene.scale)
-    player_mov.speed  = PLAYER_SPEED * f32(scene.scale)
+    player_mov.point  = PLAYER_POINT
+    player_mov.speed  = PLAYER_SPEED
     player_mov.state  = .STILL
+
+    scene.camera.target = PLAYER_POINT
+    scene.camera.offset = PLAYER_POINT
 
     return true
 }
 
 title_scene_start :: proc(scene: ^Title_Scene, stage: ^Game) -> bool
 {
-    scene.scale       = stage.scale
+    scene.camera.scale  = f32(stage.scale)
+    scene.camera.render = stage.render
+
     scene.window_size = stage.window_size
     scene.tile_size   = stage.tile_size
     scene.window      = stage.window
@@ -90,6 +95,7 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
     event: sdl.Event
 
     player_inp := &scene.inputs[PLAYER]
+    player_mov := &scene.movements[PLAYER]
 
     for sdl.PollEvent(&event) {
         #partial switch event.type {
@@ -100,6 +106,9 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
                     case .ESCAPE: return false
 
                     case .R: title_scene_load(scene)
+
+                    case .F: scene.camera.target = player_mov.point
+                    case .G: scene.camera.target = {0, 0}
 
                     case .D, .RIGHT: player_inp.east  = false
                     case .W, .UP:    player_inp.north = false
@@ -128,8 +137,8 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
 
 title_scene_step :: proc(scene: ^Title_Scene, delta: f32)
 {
-    player_mov := &scene.movements[PLAYER]
     player_inp := &scene.inputs[PLAYER]
+    player_mov := &scene.movements[PLAYER]
 
     if player_mov.state == .STILL {
         player_mov.delta = {
@@ -153,8 +162,7 @@ title_scene_step :: proc(scene: ^Title_Scene, delta: f32)
     }
 
     if player_mov.state == .MOVING {
-        player_mov.point += player_mov.angle *
-            player_mov.speed * delta
+        player_mov.point += player_mov.angle * player_mov.speed * delta
 
         dist := [2]i32 {
             i32(player_mov.target.x) - i32(player_mov.point.x),
@@ -180,17 +188,10 @@ title_scene_draw :: proc(scene: ^Title_Scene, extra: f32)
     assert(sdl.RenderClear(scene.render) == 0,
         sdl.GetErrorString())
 
-    player_spr := scene.sprites[PLAYER]
     player_mov := scene.movements[PLAYER]
+    player_spr := scene.sprites[PLAYER]
 
-    dest := [4]f32 {
-        player_mov.point.x,
-        player_mov.point.y,
-        f32(player_spr.frame.z * scene.scale),
-        f32(player_spr.frame.w * scene.scale),
-    }
-
-    sprite_draw(&player_spr, scene.render, dest)
+    sprite_draw(&player_spr, &scene.camera, player_mov.point)
 
     sdl.RenderPresent(scene.render)
 }

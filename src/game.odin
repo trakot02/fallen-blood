@@ -31,12 +31,13 @@ game_start :: proc(stage: ^Game, config: ^pax.Loop_Config)
 
     stage.scale = 5
 
-    stage.window_size = WINDOW_SIZE * stage.scale
-    stage.tile_size   = TILE_SIZE * stage.scale
+    stage.window_size = WINDOW_SIZE
+    stage.tile_size   = TILE_SIZE
 
     stage.window = sdl.CreateWindow("Fallen blood",
         sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-        stage.window_size.x, stage.window_size.y, {.HIDDEN})
+        stage.window_size.x * stage.scale,
+        stage.window_size.y * stage.scale, {.HIDDEN})
 
     assert(stage.window != nil, sdl.GetErrorString())
 

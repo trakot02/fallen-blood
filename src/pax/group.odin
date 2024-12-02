@@ -5,7 +5,6 @@ Group :: struct
 
 }
 
-
 group_create :: proc(self: ^Group)
 {
 
