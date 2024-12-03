@@ -1,6 +1,6 @@
 package main
 
-Input :: struct
+Controls :: struct
 {
     east:  bool,
     north: bool,

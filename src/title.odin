@@ -18,6 +18,12 @@ PLAYER_SPEED       :: 128
 GROUND_TEXTURE :: "data/scene/title/ground.png"
 GROUND_GRID    :: "data/scene/title/ground.csv"
 
+Player :: struct {
+    sprite:   Sprite,
+    movement: Movement,
+    controls: Controls,
+}
+
 Title_Scene :: struct
 {
     window_size: [2]i32,
@@ -28,20 +34,19 @@ Title_Scene :: struct
     window: ^sdl.Window,
     render: ^sdl.Renderer,
 
-    txtr_registry:  pax.Registry(pax.Texture),
+    txtr_registry: pax.Registry(pax.Texture),
     grid_registry: pax.Registry(pax.Grid),
 
-    // replace with archetypes
-    sprites:   [dynamic]Sprite,
-    movements: [dynamic]Movement,
-    inputs:    [dynamic]Input,
+    world: pax.World,
+
+    player_group: pax.Group(Player),
+
+    player: pax.Actor,
 }
 
 title_scene_load :: proc(scene: ^Title_Scene) -> bool
 {
-    inject_at(&scene.sprites,   PLAYER, Sprite {})
-    inject_at(&scene.movements, PLAYER, Movement {})
-    inject_at(&scene.inputs,    PLAYER, Input {})
+    player: ^Player
 
     texture, error := pax.registry_load(&scene.txtr_registry, PLAYER_TEXTURE)
 
@@ -67,14 +72,14 @@ title_scene_load :: proc(scene: ^Title_Scene) -> bool
         return false
     }
 
-    player_spr         := &scene.sprites[PLAYER]
-    player_spr.texture  = texture
-    player_spr.frame    = PLAYER_IDLE_DOWN_0
+    scene.player, player = pax.group_create_actor(&scene.player_group)
 
-    player_mov       := &scene.movements[PLAYER]
-    player_mov.point  = PLAYER_POINT
-    player_mov.speed  = PLAYER_SPEED
-    player_mov.state  = .STILL
+    player.sprite.texture = texture
+    player.sprite.frame   = PLAYER_IDLE_DOWN_0
+
+    player.movement.point = PLAYER_POINT
+    player.movement.speed = PLAYER_SPEED
+    player.movement.state = .STILL
 
     scene.camera.target = PLAYER_POINT
 
@@ -102,6 +107,9 @@ title_scene_start :: proc(scene: ^Title_Scene, stage: ^Game) -> bool
     pax.registry_create(&scene.txtr_registry)
     pax.registry_create(&scene.grid_registry)
 
+    pax.world_create(&scene.world)
+    pax.group_create(&scene.player_group, &scene.world)
+
     if title_scene_load(scene) == false {
         return false
     }
@@ -120,8 +128,7 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
 {
     event: sdl.Event
 
-    player_inp := &scene.inputs[PLAYER]
-    player_mov := &scene.movements[PLAYER]
+    player := pax.group_find(&scene.player_group, scene.player)
 
     for sdl.PollEvent(&event) {
         #partial switch event.type {
@@ -133,13 +140,13 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
 
                     case .R: title_scene_load(scene)
 
-                    case .F: scene.camera.target = player_mov.point
+                    case .F: scene.camera.target = player.movement.point
                     case .G: scene.camera.target = {0, 0}
 
-                    case .D, .RIGHT: player_inp.east  = false
-                    case .W, .UP:    player_inp.north = false
-                    case .A, .LEFT:  player_inp.west  = false
-                    case .S, .DOWN:  player_inp.south = false
+                    case .D, .RIGHT: player.controls.east  = false
+                    case .W, .UP:    player.controls.north = false
+                    case .A, .LEFT:  player.controls.west  = false
+                    case .S, .DOWN:  player.controls.south = false
                 }
             }
 
@@ -147,10 +154,10 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
                 key := event.key
 
                 #partial switch key.keysym.sym {
-                    case .D, .RIGHT: player_inp.east  = true
-                    case .W, .UP:    player_inp.north = true
-                    case .A, .LEFT:  player_inp.west  = true
-                    case .S, .DOWN:  player_inp.south = true
+                    case .D, .RIGHT: player.controls.east  = true
+                    case .W, .UP:    player.controls.north = true
+                    case .A, .LEFT:  player.controls.west  = true
+                    case .S, .DOWN:  player.controls.south = true
                 }
             }
 
@@ -163,52 +170,51 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
 
 title_scene_step :: proc(scene: ^Title_Scene, delta: f32)
 {
-    player_inp := &scene.inputs[PLAYER]
-    player_mov := &scene.movements[PLAYER]
+    player := pax.group_find(&scene.player_group, scene.player)
 
-    if player_mov.state == .STILL {
-        player_mov.delta = {
-            i32(player_inp.east)  - i32(player_inp.west),
-            i32(player_inp.south) - i32(player_inp.north),
+    if player.movement.state == .STILL {
+        player.movement.delta = {
+            i32(player.controls.east)  - i32(player.controls.west),
+            i32(player.controls.south) - i32(player.controls.north),
         }
 
-        if player_mov.delta == {0, 0} do return
+        if player.movement.delta == {0, 0} do return
 
         dist := [2]f32 {
-            f32(player_mov.delta.x * scene.tile_size.x),
-            f32(player_mov.delta.y * scene.tile_size.y),
+            f32(player.movement.delta.x * scene.tile_size.x),
+            f32(player.movement.delta.y * scene.tile_size.y),
         }
 
-        player_mov.angle = linalg.normalize0([2]f32 {
-            f32(player_mov.delta.x), f32(player_mov.delta.y),
+        player.movement.angle = linalg.normalize0([2]f32 {
+            f32(player.movement.delta.x), f32(player.movement.delta.y),
         })
 
-        player_mov.target = player_mov.point + dist
-        player_mov.state  = .MOVING
+        player.movement.target = player.movement.point + dist
+        player.movement.state  = .MOVING
     }
 
-    if player_mov.state == .MOVING {
-        player_mov.point += player_mov.angle * player_mov.speed * delta
+    if player.movement.state == .MOVING {
+        player.movement.point += player.movement.angle * player.movement.speed * delta
 
         dist := [2]i32 {
-            i32(player_mov.target.x) - i32(player_mov.point.x),
-            i32(player_mov.target.y) - i32(player_mov.point.y),
+            i32(player.movement.target.x) - i32(player.movement.point.x),
+            i32(player.movement.target.y) - i32(player.movement.point.y),
         }
 
-        if dist.x * player_mov.delta.x <= 0 {
-            player_mov.point.x = player_mov.target.x
+        if dist.x * player.movement.delta.x <= 0 {
+            player.movement.point.x = player.movement.target.x
         }
 
-        if dist.y * player_mov.delta.y <= 0 {
-            player_mov.point.y = player_mov.target.y
+        if dist.y * player.movement.delta.y <= 0 {
+            player.movement.point.y = player.movement.target.y
         }
 
-        if player_mov.target == player_mov.point {
-            player_mov.state = .STILL
+        if player.movement.target == player.movement.point {
+            player.movement.state = .STILL
         }
     }
 
-    scene.camera.target = player_mov.point
+    scene.camera.target = player.movement.point
 }
 
 title_scene_draw :: proc(scene: ^Title_Scene, extra: f32)
@@ -235,10 +241,9 @@ title_scene_draw :: proc(scene: ^Title_Scene, extra: f32)
         sprite_draw(&ground_spr, &scene.camera, point)
     }
 
-    player_mov := scene.movements[PLAYER]
-    player_spr := scene.sprites[PLAYER]
+    player := pax.group_find(&scene.player_group, scene.player)
 
-    sprite_draw(&player_spr, &scene.camera, player_mov.point)
+    sprite_draw(&player.sprite, &scene.camera, player.movement.point)
 
     sdl.RenderPresent(scene.render)
 }
