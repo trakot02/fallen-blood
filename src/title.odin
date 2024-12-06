@@ -7,19 +7,19 @@ import "core:fmt"
 
 import "pax"
 
-PLAYER_IDLE_DOWN_0 :: [4]int {64,  0, 16, 16}
+PLAYER_IDLE_DOWN_0 :: [4]int {64, 32, 16, 16}
 PLAYER_POINT       :: [2]int {16, 16}
 PLAYER_SPEED       :: 128
 
 PALM_FRAME  :: [4]int {64,   0, 16, 32}
 PALM_OFFSET :: [2]int { 0, -16}
 
-TEXTURES :: [?]pax.Resource {
+TEXTURES :: [2]pax.Resource {
     {name = "characters", path = "data/scene/title/characters.png"},
     {name = "tileset",    path = "data/scene/title/tileset.png"},
 }
 
-GRIDS :: [?]pax.Resource {
+GRIDS :: [3]pax.Resource {
     {name = "ground", path = "data/scene/title/ground.csv"},
     {name = "object", path = "data/scene/title/object.csv"},
     {name = "entity", path = "data/scene/title/entity.csv"},
@@ -114,7 +114,6 @@ title_scene_load :: proc(scene: ^Title_Scene) -> bool
     palm.frame   = PALM_FRAME
     palm.offset  = PALM_OFFSET
 
-
     for value, index in scene.entity_layer.grid.value {
         actor := pax.group_find(&scene.player_group, value)
 
@@ -122,6 +121,8 @@ title_scene_load :: proc(scene: ^Title_Scene) -> bool
 
         actor.movement.point = pax.grid_to_point(&scene.entity_layer,
             pax.grid_pair(&scene.entity_layer, index))
+
+        actor.sprite.pixel = actor.movement.point
     }
 
     for value, index in scene.entity_layer.grid.value {
@@ -191,9 +192,6 @@ title_scene_input :: proc(scene: ^Title_Scene) -> bool
                     case .ESCAPE: return false
 
                     case .R: title_scene_load(scene)
-
-                    case .F: scene.camera.follow = player.movement.point
-                    case .G: scene.camera.follow = {0, 0}
 
                     case .D, .RIGHT: player.controls.east  = false
                     case .W, .UP:    player.controls.north = false

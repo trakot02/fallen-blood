@@ -10,6 +10,8 @@ Actor_Grid :: struct
     using grid: Grid,
 }
 
+import "core:fmt"
+
 actor_grid_draw :: proc(self: ^Actor_Grid, camera: ^Camera, render: ^sdl.Renderer, group: ^Group($T))
     where intrinsics.type_is_subtype_of(T, Sprite)
 {
@@ -25,10 +27,10 @@ actor_grid_draw :: proc(self: ^Actor_Grid, camera: ^Camera, render: ^sdl.Rendere
             if col < 0 || col >= self.size.x { continue }
 
             index := grid_index(self, {col, row})
-            value := group_find(group, self.value[index])
+            actor := group_find(group, self.value[index])
 
-            if value != nil {
-                sprite_draw(value, camera, render)
+            if actor != nil {
+                sprite_draw(actor, camera, render)
             }
         }
     }

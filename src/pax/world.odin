@@ -91,12 +91,10 @@ group_insert :: proc(self: ^Group($T), actor: int) -> ^T
     if actor < 0 { return nil }
 
     if actor > self.count - 1 {
-        self.count = actor + 1
-
         error := resize(&self.table, actor + 1)
 
         if error == nil {
-            error = resize(&self.value, self.count)
+            error = resize(&self.value, self.count + 1)
         }
 
         if error != nil {
@@ -105,30 +103,30 @@ group_insert :: proc(self: ^Group($T), actor: int) -> ^T
 
             return nil
         }
-    } else {
-        self.table[actor] = self.count
-
-        self.count += 1
     }
 
-    index := self.table[actor]
+    index := self.count
 
+    self.count += 1
+
+    self.table[actor] = index + 1
     self.value[index] = {}
 
     return &self.value[index]
 }
 
+// todo: fix the removal
 group_remove :: proc(self: ^Group($T), actor: int)
 {
     index := len(self.table)
 
     if 0 <= actor && actor < index {
-        other := self.table[actor]
+        other := self.table[actor] - 1
 
         if other < 0 { return }
 
-        self.table[index - 1] = actor
-        self.table[actor]     = -1
+        self.table[self.count - 1] = self.table[actor]
+        self.table[actor] = 0
 
         if index - 1 != actor {
             self.value[actor] = self.value[index - 1]
@@ -143,7 +141,7 @@ group_find :: proc(self: ^Group($T), actor: int) -> ^T
     index := len(self.table)
 
     if 0 <= actor && actor < index {
-        other := self.table[actor]
+        other := self.table[actor] - 1
 
         if 0 <= other && other < self.count {
             return &self.value[other]

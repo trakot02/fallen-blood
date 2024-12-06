@@ -38,7 +38,7 @@ tile_grid_draw :: proc(self: ^Tile_Grid, camera: ^Camera, render: ^sdl.Renderer)
                     (value / (self.texture.size.x / self.tile.x)) * self.tile.y,
                 }
 
-                sprite.pixel = grid_to_point(self, grid_pair(self, index))
+                sprite.pixel = grid_to_point(self, {col, row})
 
                 sprite_draw(&sprite, camera, render)
             }
