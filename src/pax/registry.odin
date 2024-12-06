@@ -2,32 +2,34 @@ package pax
 
 import "core:mem"
 
-Load_Config :: enum
+Resource :: struct
 {
-    SIMPLE,
-    STORED,
+    name: string,
+    path: string,
 }
 
-Load_Error :: enum
+Registry_Item :: struct ($T: typeid)
 {
-    SOME,
+    path:  string,
+    value: T,
 }
 
 Registry :: struct ($T: typeid)
 {
-    values: map[string]T,
+    table: map[string]Registry_Item(T),
 
     instance: rawptr,
 
     proc_create:  proc(self: rawptr),
     proc_destroy: proc(self: rawptr),
-    proc_load:    proc(self: rawptr, name: string) -> (T, Load_Error),
+    proc_load:    proc(self: rawptr, name: string) -> (T, bool),
     proc_unload:  proc(self: rawptr, name: string),
 }
 
 registry_create :: proc(self: ^Registry($T), allocator := context.allocator)
 {
-    self.values = make(map[string]T, allocator)
+    self.table = make(map[string]Registry_Item(T),
+        allocator)
 
     self.proc_create(self.instance)
 }
@@ -36,31 +38,38 @@ registry_destroy :: proc(self: ^Registry($T))
 {
     self.proc_destroy(self.instance)
 
-    delete(self.values)
+    delete(self.table)
 }
 
-registry_load :: proc(self: ^Registry($T), name: string, config: Load_Config = .STORED) -> (T, Load_Error)
+registry_load :: proc(self: ^Registry($T), resource: Resource) -> bool
 {
-    if config == .STORED && name in self.values {
-        value, _ := self.values[name]
+    value, state := self.proc_load(self.instance, resource.path)
 
-        return value, nil
+    if state == true {
+        self.table[resource.name] = {resource.path, value}
     }
 
-    value, error := self.proc_load(self.instance, name)
+    return state
+}
 
-    if error == nil {
-        self.values[name] = value
+registry_find :: proc(self: ^Registry($T), name: string) -> ^T
+{
+    item, state := &self.table[name]
+
+    if state == true {
+        return &item.value
     }
 
-    return value, error
+    return nil
 }
 
 registry_unload :: proc(self: ^Registry($T), name: string)
 {
-    value, state := self.values[name]
+    item, state := &self.table[name]
 
     if state == true {
-        self.proc_unload(self.instance, value)
+        self.proc_unload(self.instance, name)
+
+        delete_key(&self.table, name)
     }
 }

@@ -5,15 +5,12 @@ import sdli "vendor:sdl2/image"
 
 import "pax"
 
-WINDOW_SIZE :: [2]i32 {320, 180}
-TILE_SIZE   :: [2]i32 { 16,  16}
+WINDOW_SIZE :: [2]int {320, 180}
+TILE_SIZE   :: [2]int { 16,  16}
 
 Game :: struct
 {
-    scale: i32,
-
-    window_size: [2]i32,
-    tile_size:   [2]i32,
+    scale: int,
 
     window: ^sdl.Window,
     render: ^sdl.Renderer,
@@ -21,8 +18,8 @@ Game :: struct
 
 game_start :: proc(stage: ^Game, config: ^pax.Loop_Config)
 {
-    config.frame_rate = 256
-    config.frame_skip = 256
+    config.frame_rate = 30
+    config.frame_skip = 30
 
     assert(sdl.Init(sdl.INIT_VIDEO) == 0, sdl.GetErrorString())
 
@@ -31,13 +28,10 @@ game_start :: proc(stage: ^Game, config: ^pax.Loop_Config)
 
     stage.scale = 5
 
-    stage.window_size = WINDOW_SIZE
-    stage.tile_size   = TILE_SIZE
-
     stage.window = sdl.CreateWindow("Fallen blood",
         sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-        stage.window_size.x * stage.scale,
-        stage.window_size.y * stage.scale, {.HIDDEN})
+        i32(WINDOW_SIZE.x * stage.scale),
+        i32(WINDOW_SIZE.y * stage.scale), {.HIDDEN})
 
     assert(stage.window != nil, sdl.GetErrorString())
 

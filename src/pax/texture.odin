@@ -10,7 +10,7 @@ import sdli "vendor:sdl2/image"
 Texture :: struct
 {
     value: ^sdl.Texture,
-    size: [2]i32,
+    size:  [2]int,
 }
 
 texture_create :: proc(self: ^sdl.Renderer)
@@ -23,14 +23,14 @@ texture_destroy :: proc(self: ^sdl.Renderer)
     // empty.
 }
 
-texture_load :: proc(self: ^sdl.Renderer, name: string) -> (Texture, Load_Error)
+texture_load :: proc(self: ^sdl.Renderer, name: string) -> (Texture, bool)
 {
     result := Texture {nil, {0, 0}}
 
     if self == nil {
-        fmt.printf("ERROR: Null renderer\n")
+        fmt.printf("ERROR: Renderer is null\n")
 
-        return result, .SOME
+        return result, false
     }
 
     cstr, error := strings.clone_to_cstring(name, context.temp_allocator)
@@ -38,7 +38,7 @@ texture_load :: proc(self: ^sdl.Renderer, name: string) -> (Texture, Load_Error)
     if error != nil {
         fmt.printf("ERROR: Couldn't clone string\n")
 
-        return result, .SOME
+        return result, false
     }
 
     value := sdli.LoadTexture(self, cstr)
@@ -48,7 +48,7 @@ texture_load :: proc(self: ^sdl.Renderer, name: string) -> (Texture, Load_Error)
     if value == nil {
         fmt.printf("ERROR: %v\n", sdl.GetErrorString())
 
-        return result, .SOME
+        return result, false
     }
 
     size := sdl.Point {}
@@ -57,10 +57,10 @@ texture_load :: proc(self: ^sdl.Renderer, name: string) -> (Texture, Load_Error)
         sdl.GetErrorString())
 
     result.value  = value
-    result.size.x = i32(size.x)
-    result.size.y = i32(size.y)
+    result.size.x = int(size.x)
+    result.size.y = int(size.y)
 
-    return result, nil
+    return result, true
 }
 
 texture_unload :: proc(self: ^sdl.Renderer, value: ^sdl.Texture)
@@ -80,4 +80,9 @@ texture_registry :: proc(self: ^sdl.Renderer) -> Registry(Texture)
     registry.proc_unload  = auto_cast texture_unload
 
     return registry
+}
+
+texture_pair :: proc(self: ^Texture, index: int) -> [2]int
+{
+    return {index % self.size.x, index / self.size.x}
 }

@@ -2,31 +2,24 @@ package pax
 
 import "core:fmt"
 
-Actor :: struct
-{
-    index: int,
-    magic: int,
-}
-
 World :: struct
 {
     head:  int,
     count: int,
-    table: [dynamic]Actor,
+    table: [dynamic]int,
 }
 
 Group :: struct ($T: typeid)
 {
-    world: ^World,
     count: int,
-    table: [dynamic]Actor,
+    table: [dynamic]int,
     value: [dynamic]T,
 }
 
 world_create :: proc(self: ^World, allocator := context.allocator)
 {
     self.head  = -1
-    self.table = make([dynamic]Actor, allocator)
+    self.table = make([dynamic]int, allocator)
 }
 
 world_destroy :: proc(self: ^World)
@@ -37,55 +30,52 @@ world_destroy :: proc(self: ^World)
     self.head  = -1
 }
 
-world_create_actor :: proc(self: ^World) -> (Actor)
+world_create_actor :: proc(self: ^World) -> int
 {
-    index  := len(self.table)
-    result := Actor {index, 0}
+    actor := len(self.table)
 
     if self.count <= 0 || self.head == -1 {
-        _, error := append(&self.table, result)
+        _, error := append(&self.table, actor)
 
         if error != nil {
             fmt.printf("ERROR: Unable to create a new actor\n")
 
-            return Actor {-1, 0}
+            return -1
         }
     } else {
-        next := self.table[self.head]
+        next := &self.table[self.head]
 
-        result = {self.head, next.magic}
+        actor = self.head
 
-        self.head   = next.index
+        self.head   = next^
         self.count -= 1
+
+        next^ = actor
     }
 
-    return result
+    return actor
 }
 
-world_destroy_actor :: proc(self: ^World, actor: Actor)
+world_destroy_actor :: proc(self: ^World, actor: int)
 {
     index := len(self.table)
 
-    if 0 <= actor.index && actor.index < index {
-        value := &self.table[actor.index]
+    if 0 <= actor && actor < index {
+        value := &self.table[actor]
 
-        if value.magic != actor.magic { return }
+        assert(value^ == actor)
 
-        if self.count + 1 >= 0 && value.magic + 1 >= 0 {
-            value.index  = self.head
-            value.magic += 1
+        value^ = self.head
 
-            self.head   = actor.index
-            self.count += 1
-        }
+        self.head   = actor
+        self.count += 1
     }
 }
 
-group_create :: proc(self: ^Group($T), world: ^World, allocator := context.allocator)
+group_create :: proc(self: ^Group($T), allocator := context.allocator)
 {
-    self.world = world
-    self.table = make([dynamic]Actor, allocator)
-    self.value = make([dynamic]T, allocator)
+    self.table = make([dynamic]int, allocator)
+    self.value = make([dynamic]T,   allocator)
 }
 
 group_destroy :: proc(self: ^Group($T))
@@ -94,85 +84,69 @@ group_destroy :: proc(self: ^Group($T))
     delete(self.table)
 
     self.count = 0
-    self.world = nil
 }
 
-group_create_actor :: proc(self: ^Group($T)) -> (Actor, ^T)
+group_insert :: proc(self: ^Group($T), actor: int) -> ^T
 {
-    actor := world_create_actor(self.world)
+    if actor < 0 { return nil }
 
-    if actor.index == -1 { return actor, nil }
+    if actor > self.count - 1 {
+        self.count = actor + 1
 
-    if actor.index > self.count - 1 {
-        self.count = actor.index + 1
-
-        _, error := append(&self.table, actor)
+        error := resize(&self.table, actor + 1)
 
         if error == nil {
             error = resize(&self.value, self.count)
         }
 
         if error != nil {
-            fmt.printf("ERROR: Unable to create a new actor\n")
+            fmt.printf("ERROR: Unable to insert a value for the actor %v\n",
+                actor)
 
-            world_destroy_actor(self.world, actor)
-
-            return Actor {-1, 0}, nil
+            return nil
         }
     } else {
-        index := actor.index
-
-        self.table[index].index = self.count
-        self.table[index].magic = actor.magic
+        self.table[actor] = self.count
 
         self.count += 1
     }
 
-    index := &self.table[actor.index].index
-    value := &self.value[index^]
+    index := self.table[actor]
 
-    value^ = {}
+    self.value[index] = {}
 
-    return actor, value
+    return &self.value[index]
 }
 
-group_destroy_actor :: proc(self: ^Group($T), actor: Actor)
+group_remove :: proc(self: ^Group($T), actor: int)
 {
     index := len(self.table)
 
-    if 0 <= actor.index && actor.index < index {
-        value := &self.table[actor.index]
+    if 0 <= actor && actor < index {
+        other := self.table[actor]
 
-        if value.magic != actor.magic { return }
+        if other < 0 { return }
 
-        self.table[index - 1].index  = actor.index
-        self.table[index - 1].magic += 1
+        self.table[index - 1] = actor
+        self.table[actor]     = -1
 
-        self.table[actor.index] = Actor {-1, 0}
-
-        if index - 1 != actor.index {
-            self.value[actor.index] = self.value[index - 1]
+        if index - 1 != actor {
+            self.value[actor] = self.value[index - 1]
         }
 
         self.count -= 1
-
-        world_destroy_actor(self.world, actor)
     }
 }
 
-group_find :: proc(self: ^Group($T), actor: Actor) -> ^T
+group_find :: proc(self: ^Group($T), actor: int) -> ^T
 {
     index := len(self.table)
 
-    if 0 <= actor.index && actor.index < index {
-        value := &self.table[actor.index]
+    if 0 <= actor && actor < index {
+        other := self.table[actor]
 
-        if value.magic != actor.magic { return nil }
-
-        index = self.table[actor.index].index
-
-        if 0 <= index && index < self.count {
-            return &self.value[index]
+        if 0 <= other && other < self.count {
+            return &self.value[other]
         }
     }
 
