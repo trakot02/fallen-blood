@@ -1,10 +1,9 @@
 package pax
 
-import "core:encoding/csv"
 import "core:strings"
 import "core:strconv"
+import "core:encoding/csv"
 import "core:os"
-import "core:mem"
 import "core:fmt"
 
 Grid :: struct
@@ -14,29 +13,26 @@ Grid :: struct
     tile:  [2]int,
 }
 
-grid_create :: proc(self: rawptr)
+grid_init :: proc(self: ^Grid, tile: [2]int, allocator := context.allocator)
 {
-    assert(self == nil)
+    self.tile  = tile
+    self.value = make([dynamic]int, allocator)
 }
 
-grid_destroy :: proc(self: rawptr)
+grid_destroy :: proc(self: ^Grid)
 {
-    assert(self == nil)
+    delete(self.value)
 }
 
-grid_load :: proc(self: rawptr, name: string) -> (Grid, bool)
+grid_load :: proc(self: ^Grid, name: string) -> bool
 {
-    assert(self == nil)
-
-    result := Grid {nil, {0, 0}, {0, 0}}
-
     value, error := os.open(name)
 
     if error != nil {
         fmt.printf("FATAL: Unable to open file '%v'\n",
             name)
 
-        return result, false
+        return false
     }
 
     defer os.close(value)
@@ -51,10 +47,10 @@ grid_load :: proc(self: rawptr, name: string) -> (Grid, bool)
     defer csv.reader_destroy(&reader)
 
     for record, row in csv.iterator_next(&reader) {
-        result.size.y = row + 1
+        self.size.y = row + 1
 
         for field, col in record {
-            if col > result.size.x { result.size.x = col + 1 }
+            if col > self.size.x { self.size.x = col + 1 }
 
             temp, succ := strconv.parse_int(
                 strings.trim(field, " \n\t\r\v\f"))
@@ -66,30 +62,16 @@ grid_load :: proc(self: rawptr, name: string) -> (Grid, bool)
                 temp = -1
             }
 
-            append(&result.value, temp)
+            append(&self.value, temp)
         }
     }
 
-    return result, true
+    return true
 }
 
-grid_unload :: proc(self: rawptr, value: ^Grid)
+grid_unload :: proc(self: ^Grid)
 {
-    assert(self == nil)
-
-    delete(value.value)
-}
-
-grid_registry :: proc() -> Registry(Grid)
-{
-    registry := Registry(Grid) {}
-
-    registry.proc_create  = auto_cast grid_create
-    registry.proc_destroy = auto_cast grid_destroy
-    registry.proc_load    = auto_cast grid_load
-    registry.proc_unload  = auto_cast grid_unload
-
-    return registry
+    delete(self.value)
 }
 
 grid_to_point :: proc(self: ^Grid, cell: [2]int) -> [2]int
@@ -120,20 +102,4 @@ grid_find :: proc(self: ^Grid, cell: [2]int) -> ^int
     index := cell.y * self.size.x + cell.x
 
     return &self.value[index]
-}
-
-grid_show :: proc(self: ^Grid)
-{
-    for row in 0 ..< self.size.y {
-        for col in 0 ..< self.size.x {
-            index := grid_index(self, {col, row})
-            value := self.value[index]
-
-            fmt.printf("%3v ", value)
-        }
-
-        fmt.printf("\n")
-    }
-
-    fmt.printf("\n")
 }

@@ -7,42 +7,66 @@ Camera :: struct {
     size:   [2]int,
     follow: [2]int,
     offset: [2]int,
-    scale:  f32,
+    zoom:   [2]f32,
 }
 
-camera_draw :: proc(self: ^Camera, texture: Texture, render: ^sdl.Renderer, part: [4]int, rect: [4]int)
+camera_draw_part :: proc(self: ^Camera, renderer: ^Renderer, texture: int, rect: [4]int, part: [4]int)
 {
-    src := sdl.Rect {
-        i32(part.x), i32(part.y),
-        i32(part.z), i32(part.w),
+    rect := rect
+
+    rect.x += self.offset.x - self.follow.x
+    rect.y += self.offset.y - self.follow.y
+
+    rect = {
+        int(self.zoom.x * f32(rect.x)),
+        int(self.zoom.y * f32(rect.y)),
+        int(self.zoom.x * f32(rect.z)),
+        int(self.zoom.y * f32(rect.w)),
     }
 
-    rect_x := rect.x + self.offset.x - self.follow.x
-    rect_y := rect.y + self.offset.y - self.follow.y
-
-    dst := sdl.Rect {
-        i32(f32(rect_x) * self.scale),
-        i32(f32(rect_y) * self.scale),
-        i32(f32(rect.z) * self.scale),
-        i32(f32(rect.w) * self.scale),
-    }
-
-    assert(sdl.RenderCopy(render, texture.value, &src, &dst) == 0,
-        sdl.GetErrorString())
+    renderer_draw(renderer, texture, rect, part)
 }
 
-camera_draw_full :: proc(self: ^Camera, texture: Texture, render: ^sdl.Renderer, rect: [4]int)
+camera_draw_full :: proc(self: ^Camera, renderer: ^Renderer, texture: int, rect: [4]int)
 {
-    rect_x := rect.x + self.offset.x - self.follow.x
-    rect_y := rect.y + self.offset.y - self.follow.y
+    rect := rect
 
-    dst := sdl.Rect {
-        i32(f32(rect_x) * self.scale),
-        i32(f32(rect_y) * self.scale),
-        i32(f32(rect.z) * self.scale),
-        i32(f32(rect.w) * self.scale),
+    rect.x += self.offset.x - self.follow.x
+    rect.y += self.offset.y - self.follow.y
+
+    rect = {
+        int(self.zoom.x * f32(rect.x)),
+        int(self.zoom.y * f32(rect.y)),
+        int(self.zoom.x * f32(rect.z)),
+        int(self.zoom.y * f32(rect.w)),
     }
 
-    assert(sdl.RenderCopy(render, texture.value, nil, &dst) == 0,
-        sdl.GetErrorString())
+    renderer_draw(renderer, texture, rect)
+}
+
+camera_draw_sprite :: proc(self: ^Camera, renderer: ^Renderer, sprite: Sprite, point: [2]int)
+{
+    sprite := sprite
+    point  := point
+
+    point.x += self.offset.x - self.follow.x
+    point.y += self.offset.y - self.follow.y
+
+    point = {
+        int(self.zoom.x * f32(point.x - sprite.origin.x)),
+        int(self.zoom.y * f32(point.y - sprite.origin.y)),
+    }
+
+    sprite.size = {
+        int(self.zoom.x * f32(sprite.size.x)),
+        int(self.zoom.y * f32(sprite.size.y)),
+    }
+
+    renderer_draw(renderer, sprite, point)
+}
+
+camera_draw :: proc {
+    camera_draw_part,
+    camera_draw_full,
+    camera_draw_sprite,
 }

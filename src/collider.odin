@@ -6,26 +6,26 @@ import "pax"
 
 collider_test :: proc(grid: ^pax.Grid, point: [2]int, angle: [2]int) -> [2]int
 {
-    angle := angle
+    delta := angle
     cell  := pax.grid_from_point(grid, point)
 
-    if angle.x == 0 && angle.y == 0 { return angle }
+    if delta.x == 0 && delta.y == 0 { return delta }
 
-    actor_x := pax.grid_find(grid, {cell.x + angle.x, cell.y})
-    actor_y := pax.grid_find(grid, {cell.x, cell.y + angle.y})
+    actor_x := pax.grid_find(grid, {cell.x + delta.x, cell.y})
+    actor_y := pax.grid_find(grid, {cell.x, cell.y + delta.y})
 
-    if actor_x == nil || actor_x^ >= 0 { angle.x = 0 }
-    if actor_y == nil || actor_y^ >= 0 { angle.y = 0 }
+    if actor_x == nil || actor_x^ > 0 { delta.x = 0 }
+    if actor_y == nil || actor_y^ > 0 { delta.y = 0 }
 
-    if angle.x != 0 || angle.y != 0 {
-        actor := pax.grid_find(grid, cell + angle)
+    if delta.x != 0 || delta.y != 0 {
+        actor := pax.grid_find(grid, cell + delta)
 
-        if actor == nil || actor^ >= 0 {
+        if actor == nil || actor^ > 0 {
             return {0, 0}
         }
     }
 
-    return angle
+    return delta
 }
 
 collider_move :: proc(grid: ^pax.Grid, point: [2]int, angle: [2]int)

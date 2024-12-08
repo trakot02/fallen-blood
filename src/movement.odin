@@ -6,8 +6,7 @@ import "pax"
 
 Movement_State :: enum
 {
-    STILL,
-    MOVING,
+    STILL, MOVING,
 }
 
 Movement :: struct
