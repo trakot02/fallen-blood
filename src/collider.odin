@@ -4,38 +4,38 @@ import "core:fmt"
 
 import "pax"
 
-collider_test :: proc(grid: ^pax.Grid, point: [2]int, angle: [2]int) -> [2]int
+collider_test :: proc(grid: ^pax.Grid_Stack, point: [2]int, angle: [2]int) -> [2]int
 {
-    delta := angle
-    cell  := pax.grid_from_point(grid, point)
+    angle := angle
+    cell  := pax.point_to_cell(grid.table, point)
 
-    if delta.x == 0 && delta.y == 0 { return delta }
+    for index in 0 ..< len(grid.layers) {
+        if angle.x == 0 && angle.y == 0 { return angle }
 
-    actor_x := pax.grid_find(grid, {cell.x + delta.x, cell.y})
-    actor_y := pax.grid_find(grid, {cell.x, cell.y + delta.y})
+        value_x := pax.grid_stack_find(grid, index, [2]int {cell.x + angle.x, cell.y})
+        value_y := pax.grid_stack_find(grid, index, [2]int {cell.x, cell.y + angle.y})
 
-    if actor_x == nil || actor_x^ > 0 { delta.x = 0 }
-    if actor_y == nil || actor_y^ > 0 { delta.y = 0 }
+        if value_x == nil || value_x^ >= 0 { angle.x = 0 }
+        if value_y == nil || value_y^ >= 0 { angle.y = 0 }
 
-    if delta.x != 0 || delta.y != 0 {
-        actor := pax.grid_find(grid, cell + delta)
+        if angle.x == 0 && angle.y == 0 { return angle }
 
-        if actor == nil || actor^ > 0 {
-            return {0, 0}
-        }
+        value := pax.grid_stack_find(grid, index, cell + angle)
+
+        if value == nil || value^ >= 0 { return {0, 0} }
     }
 
-    return delta
+    return angle
 }
 
-collider_move :: proc(grid: ^pax.Grid, point: [2]int, angle: [2]int)
+collider_move :: proc(grid: ^pax.Grid_Stack, point: [2]int, angle: [2]int, index: int)
 {
-    cell := pax.grid_from_point(grid, point)
+    cell := pax.point_to_cell(grid.table, point)
 
     if angle.x == 0 && angle.y == 0 { return }
 
-    curr := pax.grid_find(grid, cell)
-    next := pax.grid_find(grid, cell + angle)
+    curr := pax.grid_stack_find(grid, index, cell)
+    next := pax.grid_stack_find(grid, index, cell + angle)
 
     if curr != nil && next != nil {
         next^ = curr^

@@ -63,12 +63,12 @@ world_destroy_actor :: proc(self: ^World, actor: int)
     if 0 <= actor && actor < index {
         value := &self.actors[actor]
 
-        assert(value^ == actor)
+        if actor == value^ {
+            value^ = self.first
 
-        value^ = self.first
-
-        self.first   = actor
-        self.count += 1
+            self.first   = actor
+            self.count += 1
+        }
     }
 }
 

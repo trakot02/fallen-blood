@@ -55,10 +55,9 @@ sprite_table_load :: proc(self: ^Sprite_Table, name: string) -> bool
         sprite := Sprite {}
 
         for &field, col in record {
-            field = strings.trim(field, " \n\t\v\r\f")
+            field = strings.trim(field, " \n\t\r\v\f")
 
-            temp, succ := strconv.parse_int(
-                strings.trim(field, " \n\t\v\r\f"))
+            temp, succ := strconv.parse_int(field)
 
             if succ == false {
                 fmt.printf("FATAL: Unable to parse '%v' in file %v, record %v, %v\n",
@@ -82,7 +81,13 @@ sprite_table_load :: proc(self: ^Sprite_Table, name: string) -> bool
             }
         }
 
-        append(&self.sprites, sprite)
+        _, error := append(&self.sprites, sprite)
+
+        if error != nil {
+            fmt.printf("FATAL: Unable to grow the array\n")
+
+            return false
+        }
     }
 
     return true
@@ -96,7 +101,6 @@ sprite_table_unload :: proc(self: ^Sprite_Table)
 sprite_table_find :: proc(self: ^Sprite_Table, index: int) -> ^Sprite
 {
     count := len(self.sprites)
-    index := index - 1
 
     if 0 <= index && index < count {
         return &self.sprites[index]

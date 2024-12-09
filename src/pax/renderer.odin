@@ -5,112 +5,113 @@ import sdli "vendor:sdl2/image"
 
 Renderer :: struct
 {
-    render: ^sdl.Renderer,
-
-    textures: [dynamic]^sdl.Texture,
+    pointer: ^sdl.Renderer,
+    camera:  ^Camera,
+    sprite:  ^Sprite_Table,
+    texture: ^Texture_Table,
 }
 
-renderer_init :: proc(self: ^Renderer, render: ^sdl.Renderer, allocator := context.allocator)
+renderer_init :: proc(self: ^Renderer, renderer: ^sdl.Renderer, camera: ^Camera, sprite: ^Sprite_Table, texture: ^Texture_Table)
 {
-    self.render = render
-
-    self.textures = make([dynamic]^sdl.Texture, allocator)
+    self.pointer = renderer
+    self.camera  = camera
+    self.sprite  = sprite
+    self.texture = texture
 }
 
 renderer_destroy :: proc(self: ^Renderer)
 {
-    delete(self.textures)
-}
 
-renderer_push :: proc(self: ^Renderer, texture: ^sdl.Texture) -> int
-{
-    index, error := append(&self.textures, texture)
-
-    if error != nil {
-        return 0
-    }
-
-    return index + 1
-}
-
-renderer_clear :: proc(self: ^Renderer)
-{
-    clear(&self.textures)
-}
-
-renderer_find :: proc(self: ^Renderer, texture: int) -> ^sdl.Texture
-{
-    count := len(self.textures)
-    index := texture - 1
-
-    if 0 <= index && index < count {
-        return self.textures[index]
-    }
-
-    return nil
 }
 
 renderer_draw_part :: proc(self: ^Renderer, texture: int, rect: [4]int, part: [4]int)
 {
-    count := len(self.textures)
-    index := texture - 1
+    txtr := texture_table_find(self.texture, texture)
+
+    if txtr == nil { return }
+
+    move := [2]int {0, 0}
+    zoom := [2]f32 {1, 1}
+
+    if self.camera != nil {
+        move = camera_move(self.camera)
+        zoom = camera_zoom(self.camera)
+    }
+
+    dst := sdl.Rect {
+        i32(zoom.x * f32(rect.x + move.x)),
+        i32(zoom.y * f32(rect.y + move.y)),
+        i32(zoom.x * f32(rect.z)),
+        i32(zoom.y * f32(rect.w)),
+    }
 
     src := sdl.Rect {
         i32(part.x), i32(part.y), i32(part.z), i32(part.w),
     }
 
-    dst := sdl.Rect {
-        i32(rect.x), i32(rect.y), i32(rect.z), i32(rect.w),
-    }
-
-    if 0 <= index && index < count {
-        value := self.textures[index]
-
-        assert(sdl.RenderCopy(self.render, value, &src, &dst) == 0,
-            sdl.GetErrorString())
-    }
+    assert(sdl.RenderCopy(self.pointer, txtr.pointer, &src, &dst) == 0,
+        sdl.GetErrorString())
 }
 
 renderer_draw_full :: proc(self: ^Renderer, texture: int, rect: [4]int)
 {
-    count := len(self.textures)
-    index := texture - 1
+    txtr := texture_table_find(self.texture, texture)
+
+    if txtr == nil { return }
+
+    move := [2]int {0, 0}
+    zoom := [2]f32 {1, 1}
+
+    if self.camera != nil {
+        move = camera_move(self.camera)
+        zoom = camera_zoom(self.camera)
+    }
 
     dst := sdl.Rect {
-        i32(rect.x), i32(rect.y), i32(rect.z), i32(rect.w),
+        i32(zoom.x * f32(rect.x + move.x)),
+        i32(zoom.y * f32(rect.y + move.y)),
+        i32(zoom.x * f32(rect.z)),
+        i32(zoom.y * f32(rect.w)),
     }
 
-    if 0 <= index && index < count {
-        value := self.textures[index]
-
-        assert(sdl.RenderCopy(self.render, value, nil, &dst) == 0,
-            sdl.GetErrorString())
-    }
+    assert(sdl.RenderCopy(self.pointer, txtr.pointer, nil, &dst) == 0,
+        sdl.GetErrorString())
 }
 
-renderer_draw_sprite :: proc(self: ^Renderer, sprite: Sprite, point: [2]int)
+renderer_draw_sprite :: proc(self: ^Renderer, sprite: int, point: [2]int)
 {
-    count := len(self.textures)
-    index := sprite.texture - 1
+    sprt := sprite_table_find(self.sprite, sprite)
 
-    src := sdl.Rect {
-        i32(sprite.part.x), i32(sprite.part.y),
-        i32(sprite.part.z), i32(sprite.part.w),
+    if sprt == nil { return }
+
+    txtr := texture_table_find(self.texture, sprt.texture)
+
+    if txtr == nil { return }
+
+    move := [2]int {0, 0}
+    zoom := [2]f32 {1, 1}
+
+    if self.camera != nil {
+        move = camera_move(self.camera)
+        zoom = camera_zoom(self.camera)
     }
+
+    move -= sprt.origin
 
     dst := sdl.Rect {
-        i32(point.x),
-        i32(point.y),
-        i32(sprite.size.x),
-        i32(sprite.size.y),
+        i32(zoom.x * f32(point.x + move.x)),
+        i32(zoom.y * f32(point.y + move.y)),
+        i32(zoom.x * f32(sprt.size.x)),
+        i32(zoom.y * f32(sprt.size.y)),
     }
 
-    if 0 <= index && index < count {
-        value := self.textures[index]
-
-        assert(sdl.RenderCopy(self.render, value, &src, &dst) == 0,
-            sdl.GetErrorString())
+    src := sdl.Rect {
+        i32(sprt.part.x), i32(sprt.part.y),
+        i32(sprt.part.z), i32(sprt.part.w),
     }
+
+    assert(sdl.RenderCopy(self.pointer, txtr.pointer, &src, &dst) == 0,
+        sdl.GetErrorString())
 }
 
 renderer_draw :: proc {

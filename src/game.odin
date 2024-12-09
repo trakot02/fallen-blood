@@ -12,8 +12,8 @@ Game :: struct
 {
     scale: int,
 
-    window: ^sdl.Window,
-    render: ^sdl.Renderer,
+    window:   ^sdl.Window,
+    renderer: ^sdl.Renderer,
 }
 
 game_start :: proc(stage: ^Game, config: ^pax.Loop_Config)
@@ -35,9 +35,9 @@ game_start :: proc(stage: ^Game, config: ^pax.Loop_Config)
 
     assert(stage.window != nil, sdl.GetErrorString())
 
-    stage.render = sdl.CreateRenderer(stage.window, -1, {.ACCELERATED})
+    stage.renderer = sdl.CreateRenderer(stage.window, -1, {.ACCELERATED})
 
-    assert(stage.render != nil, sdl.GetErrorString())
+    assert(stage.renderer != nil, sdl.GetErrorString())
 }
 
 game_stop :: proc(stage: ^Game)

@@ -10,63 +10,28 @@ Camera :: struct {
     zoom:   [2]f32,
 }
 
-camera_draw_part :: proc(self: ^Camera, renderer: ^Renderer, texture: int, rect: [4]int, part: [4]int)
+camera_move :: proc(self: ^Camera) -> [2]int
 {
-    rect := rect
-
-    rect.x += self.offset.x - self.follow.x
-    rect.y += self.offset.y - self.follow.y
-
-    rect = {
-        int(self.zoom.x * f32(rect.x)),
-        int(self.zoom.y * f32(rect.y)),
-        int(self.zoom.x * f32(rect.z)),
-        int(self.zoom.y * f32(rect.w)),
+    return {
+        self.offset.x - self.follow.x,
+        self.offset.y - self.follow.y,
     }
-
-    renderer_draw(renderer, texture, rect, part)
 }
 
-camera_draw_full :: proc(self: ^Camera, renderer: ^Renderer, texture: int, rect: [4]int)
+camera_zoom :: proc(self: ^Camera) -> [2]f32
 {
-    rect := rect
-
-    rect.x += self.offset.x - self.follow.x
-    rect.y += self.offset.y - self.follow.y
-
-    rect = {
-        int(self.zoom.x * f32(rect.x)),
-        int(self.zoom.y * f32(rect.y)),
-        int(self.zoom.x * f32(rect.z)),
-        int(self.zoom.y * f32(rect.w)),
+    return {
+        self.zoom.x,
+        self.zoom.y,
     }
-
-    renderer_draw(renderer, texture, rect)
 }
 
-camera_draw_sprite :: proc(self: ^Camera, renderer: ^Renderer, sprite: Sprite, point: [2]int)
+camera_corners :: proc(self: ^Camera, grid: ^Grid_Table) -> [4]int
 {
-    sprite := sprite
-    point  := point
+    follow := point_to_cell(grid, self.follow)
+    size   := point_to_cell(grid, self.size)
+    start  := follow - size - 1
+    stop   := follow + size + 1
 
-    point.x += self.offset.x - self.follow.x
-    point.y += self.offset.y - self.follow.y
-
-    point = {
-        int(self.zoom.x * f32(point.x - sprite.origin.x)),
-        int(self.zoom.y * f32(point.y - sprite.origin.y)),
-    }
-
-    sprite.size = {
-        int(self.zoom.x * f32(sprite.size.x)),
-        int(self.zoom.y * f32(sprite.size.y)),
-    }
-
-    renderer_draw(renderer, sprite, point)
-}
-
-camera_draw :: proc {
-    camera_draw_part,
-    camera_draw_full,
-    camera_draw_sprite,
+    return {start.x, stop.x, start.y, stop.y}
 }

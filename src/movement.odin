@@ -19,14 +19,14 @@ Movement :: struct
     state:  Movement_State,
 }
 
-movement_step :: proc(self: ^Movement, grid: ^pax.Grid, angle: [2]int, delta: f32)
+movement_step :: proc(self: ^Movement, grid: ^pax.Grid_Table, angle: [2]int, delta: f32)
 {
     if self.state == .STILL {
         self.delta = angle
 
         if angle.x == 0 && angle.y == 0 { return }
 
-        next := pax.grid_to_point(grid, self.delta)
+        next := pax.cell_to_point(grid, self.delta)
 
         self.angle = linalg.normalize0([2]f32 {
             f32(self.delta.x), f32(self.delta.y)

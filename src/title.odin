@@ -1,56 +1,35 @@
 package main
 
+import "core:fmt"
+
 import sdl  "vendor:sdl2"
 import sdli "vendor:sdl2/image"
 
-import "core:fmt"
-
 import "pax"
 
-PLAYER_IDLE_DOWN_0 :: [4]int {64,  0, 16, 32}
-PLAYER_IDLE_ORIGIN :: [2]int { 0, 16}
-PLAYER_POINT       :: [2]int {16, 16}
-PLAYER_SPEED       :: 128
+GRID    :: "data/scene/title/table_grid.csv"
+TEXTURE :: "data/scene/title/table_texture.csv"
+SPRITE  :: "data/scene/title/table_sprite.csv"
 
-TEXTURES :: [2]string {
-    "data/scene/title/tileset.png",
-    "data/scene/title/characters.png",
-}
-
-GROUND_GRID       :: "data/scene/title/ground.csv"
-GROUND_SOLID_GRID :: "data/scene/title/ground_solid.csv"
-OBJECT_GRID       :: "data/scene/title/object.csv"
-OBJECT_SOLID_GRID :: "data/scene/title/object_solid.csv"
-ENTITY_GRID       :: "data/scene/title/entity.csv"
-
-SPRITE :: "data/scene/title/sprite.csv"
-
-Player :: struct
-{
-    using visible: pax.Visible,
-
-    movement: Movement,
-    controls: Controls,
-    camera:   ^pax.Camera,
-}
+GRID_SIZE :: [2]int {24, 17}
 
 Title_Scene :: struct
 {
     camera: pax.Camera,
 
-    window:  ^sdl.Window,
-    texture: pax.Texture,
-    render:  pax.Renderer,
+    window:   ^sdl.Window,
+    renderer: ^sdl.Renderer,
+
+    graphics: pax.Renderer,
 
     keyboard_channel: pax.Channel(sdl.KeyboardEvent),
 
-    sprite_table: pax.Sprite_Table,
+    grid_table:    pax.Grid_Table,
+    texture_table: pax.Texture_Table,
+    sprite_table:  pax.Sprite_Table,
 
-    ground_layer:       pax.Tile_Grid,
-    ground_solid_layer: pax.Actor_Grid,
-    object_layer:       pax.Tile_Grid,
-    object_solid_layer: pax.Actor_Grid,
-    entity_layer:       pax.Actor_Grid,
+    sprite_grid:  pax.Grid_Stack,
+    solid_grid:   pax.Grid_Stack,
 
     world: pax.World,
 
@@ -112,50 +91,38 @@ title_scene_keyboard :: proc(self: ^Title_Scene, event: sdl.KeyboardEvent) -> bo
 
 title_scene_load :: proc(scene: ^Title_Scene) -> bool
 {
-    for name in TEXTURES {
-        state := pax.texture_load(&scene.texture, name)
+    scene.camera.size   = WINDOW_SIZE
+    scene.camera.offset = WINDOW_SIZE / 2 - TILE_SIZE / 2
 
-        if state == false {
-            fmt.printf("FATAL: Couldn't load resource '%v'\n",
-                name)
+    if pax.grid_table_load(&scene.grid_table, GRID)          == false { return false }
+    if pax.texture_table_load(&scene.texture_table, TEXTURE) == false { return false }
+    if pax.sprite_table_load(&scene.sprite_table, SPRITE)    == false { return false }
 
-            return state
-        }
+    pax.grid_stack_push(&scene.sprite_grid, 1)
+    pax.grid_stack_push(&scene.sprite_grid, 3)
+    pax.grid_stack_push(&scene.sprite_grid, 4)
 
-        pax.renderer_push(&scene.render, scene.texture.pointer)
-    }
-
-    if pax.grid_load(&scene.ground_layer,       GROUND_GRID)       == false { return false }
-    if pax.grid_load(&scene.ground_solid_layer, GROUND_SOLID_GRID) == false { return false }
-    if pax.grid_load(&scene.object_layer,       OBJECT_GRID)       == false { return false }
-    if pax.grid_load(&scene.object_solid_layer, OBJECT_SOLID_GRID) == false { return false }
-    if pax.grid_load(&scene.entity_layer,       ENTITY_GRID)       == false { return false }
-
-    if pax.sprite_table_load(&scene.sprite_table, SPRITE) == false {
-        return false
-    }
+    pax.grid_stack_push(&scene.solid_grid, 0)
+    pax.grid_stack_push(&scene.solid_grid, 2)
+    pax.grid_stack_push(&scene.solid_grid, 4)
 
     player := pax.group_find(&scene.player_group, scene.player)
 
-    player.movement.point = PLAYER_POINT
-    player.movement.speed = PLAYER_SPEED
+    player.visible.sprite = 9
+    player.movement.speed = 128
     player.movement.state = .STILL
+    player.camera         = &scene.camera
 
-    player.visible.sprite = 10
+    layer := pax.grid_stack_find(&scene.solid_grid, 2)
 
-    player.camera = &scene.camera
-
-    for value, index in scene.entity_layer.grid.value {
-        actor := pax.group_find(&scene.player_group, value - 1)
+    for value, index in layer.values {
+        actor := pax.group_find(&scene.player_group, value)
 
         if actor == nil { continue }
 
-        actor.movement.point = pax.grid_to_point(&scene.entity_layer,
-            pax.grid_pair(&scene.entity_layer, index))
+        actor.movement.point = pax.cell_to_point(&scene.grid_table,
+            pax.index_to_cell(&scene.grid_table, index))
     }
-
-    scene.camera.size   = WINDOW_SIZE
-    scene.camera.offset = WINDOW_SIZE / 2 - TILE_SIZE / 2
 
     return true
 }
@@ -164,20 +131,20 @@ title_scene_start :: proc(scene: ^Title_Scene, stage: ^Game) -> bool
 {
     scene.camera.zoom = f32(stage.scale)
 
-    scene.window = stage.window
-
-    pax.renderer_init(&scene.render, stage.render)
-    pax.texture_init(&scene.texture, scene.render.render)
-
-    pax.sprite_table_init(&scene.sprite_table)
-
-    pax.grid_init(&scene.ground_layer, TILE_SIZE)
-    pax.grid_init(&scene.ground_solid_layer, TILE_SIZE)
-    pax.grid_init(&scene.object_layer, TILE_SIZE)
-    pax.grid_init(&scene.object_solid_layer, TILE_SIZE)
-    pax.grid_init(&scene.entity_layer, TILE_SIZE)
+    scene.window   = stage.window
+    scene.renderer = stage.renderer
 
     pax.channel_init(&scene.keyboard_channel)
+
+    pax.renderer_init(&scene.graphics, scene.renderer, &scene.camera, &scene.sprite_table, &scene.texture_table)
+
+    pax.grid_table_init(&scene.grid_table, GRID_SIZE, TILE_SIZE)
+    pax.texture_table_init(&scene.texture_table, scene.renderer)
+    pax.sprite_table_init(&scene.sprite_table)
+
+    pax.grid_stack_init(&scene.sprite_grid, &scene.grid_table)
+    pax.grid_stack_init(&scene.solid_grid, &scene.grid_table)
+
     pax.world_init(&scene.world)
     pax.group_init(&scene.player_group)
 
@@ -224,25 +191,23 @@ title_scene_step :: proc(scene: ^Title_Scene, delta: f32)
         angle := controls_angle(&player.controls)
 
         switch angle {
-            case { 0, -1}: player.visible.sprite = 10
-            case { 1, -1}: player.visible.sprite = 11
-            case { 1,  0}: player.visible.sprite = 12
-            case { 1,  1}: player.visible.sprite = 13
-            case { 0,  1}: player.visible.sprite = 14
-            case {-1,  1}: player.visible.sprite = 15
-            case {-1,  0}: player.visible.sprite = 16
-            case {-1, -1}: player.visible.sprite = 17
+            case { 0, -1}: player.visible.sprite = 9
+            case { 1, -1}: player.visible.sprite = 10
+            case { 1,  0}: player.visible.sprite = 11
+            case { 1,  1}: player.visible.sprite = 12
+            case { 0,  1}: player.visible.sprite = 13
+            case {-1,  1}: player.visible.sprite = 14
+            case {-1,  0}: player.visible.sprite = 15
+            case {-1, -1}: player.visible.sprite = 16
         }
 
-        angle = collider_test(&scene.ground_solid_layer.grid, player.movement.point, angle)
-        angle = collider_test(&scene.object_solid_layer.grid, player.movement.point, angle)
-        angle = collider_test(&scene.entity_layer.grid,       player.movement.point, angle)
+        angle = collider_test(&scene.solid_grid, player.movement.point, angle)
 
         if player.movement.state == .STILL {
-            collider_move(&scene.entity_layer.grid, player.movement.point, angle)
+            collider_move(&scene.solid_grid, player.movement.point, angle, 2)
         }
 
-        movement_step(&player.movement, &scene.entity_layer.grid, angle, delta)
+        movement_step(&player.movement, &scene.grid_table, angle, delta)
 
         player.visible.point = player.movement.point
 
@@ -252,57 +217,50 @@ title_scene_step :: proc(scene: ^Title_Scene, delta: f32)
     }
 }
 
+scene_sprite_layer_draw :: proc(scene: ^Title_Scene, index: int, cell: [2]int)
+{
+    value := pax.grid_stack_find(&scene.sprite_grid, index, cell)
+    point := pax.cell_to_point(&scene.grid_table, cell)
+
+    if value != nil {
+        pax.renderer_draw_sprite(&scene.graphics, value^, point)
+    }
+}
+
+scene_player_layer_draw :: proc(scene: ^Title_Scene, index: int, cell: [2]int)
+{
+    value := pax.grid_stack_find(&scene.sprite_grid, index, cell)
+
+    if value != nil {
+        entity := pax.group_find(&scene.player_group, value^)
+
+        if entity != nil {
+            pax.renderer_draw_sprite(&scene.graphics, entity.visible.sprite, entity.visible.point)
+        }
+    }
+}
+
 title_scene_draw :: proc(scene: ^Title_Scene, extra: f32)
 {
-    assert(sdl.RenderClear(scene.render.render) == 0,
+    assert(sdl.RenderClear(scene.renderer) == 0,
         sdl.GetErrorString())
 
-    follow := pax.grid_from_point(&scene.ground_layer, scene.camera.follow)
-    size   := pax.grid_from_point(&scene.ground_layer, scene.camera.size)
-    start  := follow - size - 1
-    stop   := follow + size + 2
+    corners := pax.camera_corners(&scene.camera, &scene.grid_table)
 
-    // NOTE: if two layers never swap order, draw them fully one after the other.
-
-    for row in start.y ..< stop.y {
-        for col in start.x ..< stop.x {
-            index, point := pax.tile_grid_sprite(&scene.ground_layer, {col, row})
-
-            if index != 0 {
-                sprite := pax.sprite_table_find(&scene.sprite_table, index)
-
-                if sprite != nil {
-                    pax.camera_draw(&scene.camera, &scene.render, sprite^, point)
-                }
-            }
+    for row in corners.z ..= corners.w {
+        for col in corners.x ..= corners.y {
+            scene_sprite_layer_draw(scene, 0, {col, row})
         }
     }
 
-    for row in start.y ..< stop.y {
-        for col in start.x ..< stop.x {
-            index, point := pax.tile_grid_sprite(&scene.object_layer, {col, row})
-
-            if index != 0 {
-                sprite := pax.sprite_table_find(&scene.sprite_table, index)
-
-                if sprite != nil {
-                    pax.camera_draw(&scene.camera, &scene.render, sprite^, point)
-                }
-            }
-
-            index, point = pax.actor_grid_sprite(&scene.entity_layer, {col, row}, &scene.player_group)
-
-            if index != 0 {
-                sprite := pax.sprite_table_find(&scene.sprite_table, index)
-
-                if sprite != nil {
-                    pax.camera_draw(&scene.camera, &scene.render, sprite^, point)
-                }
-            }
+    for row in corners.z ..= corners.w {
+        for col in corners.x ..= corners.y {
+            scene_sprite_layer_draw(scene, 1, {col, row})
+            scene_player_layer_draw(scene, 2, {col, row})
         }
     }
 
-    sdl.RenderPresent(scene.render.render)
+    sdl.RenderPresent(scene.renderer)
 }
 
 title_scene :: proc(title: ^Title_Scene) -> pax.Scene
