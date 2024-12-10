@@ -130,7 +130,7 @@ stage_loop :: proc(stage: ^Stage, index: int) -> bool
 
         if index < 0 { loop = false }
 
-        if index > 0 {
+        if 0 < index && index <= count {
             scene_leave(scene)
 
             scene = &stage.scenes[index - 1]

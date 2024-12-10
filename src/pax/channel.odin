@@ -3,10 +3,10 @@ package pax
 Handler :: struct ($T: typeid)
 {
     instance:  rawptr,
-    call_proc: proc(self: rawptr, event: T) -> int,
+    call_proc: proc(self: rawptr, event: T),
 }
 
-handler_init_proc :: proc(procedure: proc(_: rawptr, _: $T) -> int) -> Handler(T)
+handler_init_proc :: proc(procedure: proc(_: rawptr, _: $T)) -> Handler(T)
 {
     value := Handler(T) {}
 
@@ -15,7 +15,7 @@ handler_init_proc :: proc(procedure: proc(_: rawptr, _: $T) -> int) -> Handler(T
     return value
 }
 
-handler_init_pair :: proc(procedure: proc(_: rawptr, _: $T) -> int, instance: rawptr) -> Handler(T)
+handler_init_pair :: proc(procedure: proc(_: rawptr, _: $T), instance: rawptr) -> Handler(T)
 {
     value := Handler(T) {}
 
@@ -30,9 +30,9 @@ Channel :: struct ($T: typeid)
     items: [dynamic]Handler(T),
 }
 
-handler_call :: proc(self: ^Handler($T), value: T) -> int
+handler_call :: proc(self: ^Handler($T), value: T)
 {
-    return self.call_proc(self.instance, value)
+    self.call_proc(self.instance, value)
 }
 
 channel_init :: proc(self: ^Channel($T), allocator := context.allocator)
@@ -50,12 +50,12 @@ channel_connect_full :: proc(self: ^Channel($T), handler: Handler(T))
     append(&self.items, handler)
 }
 
-channel_connect_proc :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T) -> int)
+channel_connect_proc :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T))
 {
     append(&self.items, handler_init_proc(procedure))
 }
 
-channel_connect_pair :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T) -> int, instance: rawptr)
+channel_connect_pair :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T), instance: rawptr)
 {
     append(&self.items, handler_init_pair(procedure, instance))
 }
@@ -68,15 +68,9 @@ channel_connect :: proc {
 
 // TODO: disconnect stuff with linear search
 
-channel_send :: proc(self: ^Channel($T), event: T) -> int
+channel_send :: proc(self: ^Channel($T), event: T)
 {
     for &handler in self.items {
-        result := handler_call(&handler, event)
-
-        if result < 0 {
-            return result
-        }
+        handler_call(&handler, event)
     }
-
-    return 0
 }

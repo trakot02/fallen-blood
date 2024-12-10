@@ -30,6 +30,7 @@ Other_Scene :: struct
 
     sprite_grid:  pax.Grid_Stack,
     solid_grid:   pax.Grid_Stack,
+    event_grid:   pax.Grid_Stack,
 
     world: pax.World,
 
@@ -39,9 +40,12 @@ Other_Scene :: struct
 
     loaded: bool,
     state:  int,
+
+    grid_handlers: [1]pax.Handler(rawptr),
 }
 
-other_player_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> int {
+
+other_player_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) {
     player := pax.group_find(&self.player_group, self.player)
 
     if event.type == .KEYUP {
@@ -61,22 +65,18 @@ other_player_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> i
             case .S, .DOWN:  player.controls.south = true
         }
     }
-
-    return self.state
 }
 
-other_camera_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> int {
+other_camera_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) {
     if event.type == .KEYDOWN {
         #partial switch event.keysym.sym {
             case .P, .PLUS,  .KP_PLUS:  self.camera.zoom += 1
             case .M, .MINUS, .KP_MINUS: self.camera.zoom -= 1
         }
     }
-
-    return self.state
 }
 
-other_scene_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> int {
+other_scene_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) {
     if event.type == .KEYUP {
         #partial switch event.keysym.sym {
             case .ESCAPE: self.state = -1
@@ -92,8 +92,25 @@ other_scene_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> in
             case .C: self.state = 1
         }
     }
+}
 
-    return self.state
+other_scene_change :: proc(self: ^Other_Scene, value: rawptr)
+{
+    self.state = 1
+}
+
+other_scene_collision :: proc(self: ^Other_Scene, event: pax.Grid_Swap_Event)
+{
+    if event.source == &self.solid_grid && event.layer == 3 {
+        value := pax.grid_stack_find(event.source, event.layer, event.cell1)
+        actor := pax.group_find(&self.player_group, value^)
+
+        handler := pax.grid_stack_find(&self.event_grid, 0, event.cell2)
+
+        if value^ == self.player && 0 <= handler^ && handler^ < len(self.grid_handlers) {
+            pax.handler_call(&self.grid_handlers[handler^], nil)
+        }
+    }
 }
 
 other_scene_start :: proc(self: ^Other_Scene, stage: ^Game) -> bool
@@ -113,6 +130,7 @@ other_scene_start :: proc(self: ^Other_Scene, stage: ^Game) -> bool
 
     pax.grid_stack_init(&self.sprite_grid, &self.grid_table)
     pax.grid_stack_init(&self.solid_grid, &self.grid_table)
+    pax.grid_stack_init(&self.event_grid, &self.grid_table)
 
     pax.world_init(&self.world)
     pax.group_init(&self.player_group)
@@ -124,6 +142,10 @@ other_scene_start :: proc(self: ^Other_Scene, stage: ^Game) -> bool
     pax.channel_connect(&self.keyboard_channel, auto_cast other_player_keyboard, self)
     pax.channel_connect(&self.keyboard_channel, auto_cast other_camera_keyboard, self)
     pax.channel_connect(&self.keyboard_channel, auto_cast other_scene_keyboard, self)
+
+    pax.channel_connect(&self.solid_grid.swap, auto_cast other_scene_collision, self)
+
+    self.grid_handlers[0] = pax.handler_init_pair(auto_cast other_scene_change, self)
 
     if other_scene_load(self) == false { return false }
 
@@ -158,6 +180,8 @@ other_scene_load :: proc(self: ^Other_Scene) -> bool
     if pax.grid_stack_push(&self.solid_grid, 2) == false { return false }
     if pax.grid_stack_push(&self.solid_grid, 4) == false { return false }
     if pax.grid_stack_push(&self.solid_grid, 6) == false { return false }
+
+    if pax.grid_stack_push(&self.event_grid, 7) == false { return false }
 
     player := pax.group_find(&self.player_group, self.player)
 
@@ -241,14 +265,12 @@ other_scene_step :: proc(self: ^Other_Scene, delta: f32)
         }
 
         for index in 0 ..< len(self.solid_grid.layers) {
-            angle = collider_test(&self.solid_grid, player.movement.point, angle, index)
+            angle = movement_test(&player.movement, &self.solid_grid, angle, index)
         }
 
-        if player.movement.state == .STILL {
-            collider_move(&self.solid_grid, player.movement.point, angle, 3)
+        if movement_step(&player.movement, &self.solid_grid, angle, delta) {
+            movement_grid(&player.movement, &self.solid_grid, angle, 3)
         }
-
-        movement_step(&player.movement, &self.grid_table, angle, delta)
 
         player.visible.point = {
             int(player.movement.point.x),

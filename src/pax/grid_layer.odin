@@ -84,3 +84,16 @@ grid_layer_find :: proc(self: ^Grid_Layer, index: int) -> ^int
 
     return nil
 }
+
+grid_layer_swap :: proc(self: ^Grid_Layer, index: int, other: int)
+{
+    count := len(self.values)
+
+    if index < 0 || index >= count { return }
+    if other < 0 || other >= count { return }
+
+    temp := self.values[index]
+
+    self.values[index] = self.values[other]
+    self.values[other] = temp
+}
