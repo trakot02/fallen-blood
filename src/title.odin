@@ -142,8 +142,8 @@ title_scene_load :: proc(self: ^Title_Scene) -> bool
     if self.loaded { return self.loaded }
 
     self.camera.size     = WINDOW_SIZE
-    self.camera.offset.x = f32(WINDOW_SIZE.x) / 2 - f32(TILE_SIZE.x) / 2
-    self.camera.offset.y = f32(WINDOW_SIZE.y) / 2 - f32(TILE_SIZE.y) / 2
+    self.camera.offset.x = WINDOW_SIZE.x / 2 - TILE_SIZE.x / 2
+    self.camera.offset.y = WINDOW_SIZE.y / 2 - TILE_SIZE.y / 2
 
     if pax.grid_table_load(&self.grid_table, TITLE_GRID)          == false { return false }
     if pax.texture_table_load(&self.texture_table, TITLE_TEXTURE) == false { return false }
@@ -250,10 +250,13 @@ title_scene_step :: proc(self: ^Title_Scene, delta: f32)
 
         movement_step(&player.movement, &self.grid_table, angle, delta)
 
-        player.visible.point = player.movement.point
+        player.visible.point = {
+            int(player.movement.point.x),
+            int(player.movement.point.y),
+        }
 
         if player.camera != nil {
-            player.camera.follow = player.movement.point
+            player.camera.follow = player.visible.point
         }
     }
 }
@@ -264,9 +267,7 @@ title_sprite_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
     point := pax.cell_to_point(&self.grid_table, cell)
 
     if value != nil {
-        pax.renderer_draw_sprite(&self.graphics, value^, {
-            f32(point.x), f32(point.y)
-        })
+        pax.renderer_draw_sprite(&self.graphics, value^, point)
     }
 }
 

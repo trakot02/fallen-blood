@@ -24,13 +24,13 @@ renderer_destroy :: proc(self: ^Renderer)
 
 }
 
-renderer_draw_part :: proc(self: ^Renderer, texture: int, rect: [4]f32, part: [4]f32)
+renderer_draw_part :: proc(self: ^Renderer, texture: int, rect: [4]int, part: [4]int)
 {
     txtr := texture_table_find(self.texture, texture)
 
     if txtr == nil { return }
 
-    move := [2]f32 {0, 0}
+    move := [2]int {0, 0}
     zoom := [2]f32 {1, 1}
 
     if self.camera != nil {
@@ -53,13 +53,13 @@ renderer_draw_part :: proc(self: ^Renderer, texture: int, rect: [4]f32, part: [4
         sdl.GetErrorString())
 }
 
-renderer_draw_full :: proc(self: ^Renderer, texture: int, rect: [4]f32)
+renderer_draw_full :: proc(self: ^Renderer, texture: int, rect: [4]int)
 {
     txtr := texture_table_find(self.texture, texture)
 
     if txtr == nil { return }
 
-    move := [2]f32 {0, 0}
+    move := [2]int {0, 0}
     zoom := [2]f32 {1, 1}
 
     if self.camera != nil {
@@ -78,7 +78,7 @@ renderer_draw_full :: proc(self: ^Renderer, texture: int, rect: [4]f32)
         sdl.GetErrorString())
 }
 
-renderer_draw_sprite :: proc(self: ^Renderer, sprite: int, point: [2]f32)
+renderer_draw_sprite :: proc(self: ^Renderer, sprite: int, point: [2]int)
 {
     sprt := sprite_table_find(self.sprite, sprite)
 
@@ -88,7 +88,7 @@ renderer_draw_sprite :: proc(self: ^Renderer, sprite: int, point: [2]f32)
 
     if txtr == nil { return }
 
-    move := [2]f32 {0, 0}
+    move := [2]int {0, 0}
     zoom := [2]f32 {1, 1}
 
     if self.camera != nil {
@@ -96,8 +96,8 @@ renderer_draw_sprite :: proc(self: ^Renderer, sprite: int, point: [2]f32)
         zoom = camera_zoom(self.camera)
     }
 
-    move.x -= f32(sprt.origin.x)
-    move.y -= f32(sprt.origin.y)
+    move.x -= sprt.origin.x
+    move.y -= sprt.origin.y
 
     dst := sdl.Rect {
         i32(zoom.x * f32(point.x + move.x)),

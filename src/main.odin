@@ -15,8 +15,8 @@ main :: proc()
     other := Other_Scene {}
     pax.stage_push(&stage, other_scene(&other))
 
-    stage.config.frame_rate = 30
-    stage.config.frame_skip = 30
+    stage.config.frame_rate = 60
+    stage.config.frame_skip = 60
 
     pax.stage_loop(&stage, 0)
 }

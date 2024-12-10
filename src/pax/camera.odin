@@ -5,12 +5,12 @@ import sdli "vendor:sdl2/image"
 
 Camera :: struct {
     size:   [2]int,
-    follow: [2]f32,
-    offset: [2]f32,
+    follow: [2]int,
+    offset: [2]int,
     zoom:   [2]f32,
 }
 
-camera_move :: proc(self: ^Camera) -> [2]f32
+camera_move :: proc(self: ^Camera) -> [2]int
 {
     return {
         self.offset.x - self.follow.x,
