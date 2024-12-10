@@ -44,9 +44,10 @@ grid_layer_load :: proc(self: ^Grid_Layer, name: string) -> bool
     defer csv.reader_destroy(&reader)
 
     for record, row in csv.iterator_next(&reader) {
-        for field, col in record {
-            temp, succ := strconv.parse_int(
-                strings.trim(field, " \n\t\r\v\f"))
+        for &field, col in record {
+            field = strings.trim(field, " \n\t\r\v\f")
+
+            temp, succ := strconv.parse_int(field)
 
             if succ == false {
                 fmt.printf("ERROR: Unable to parse '%v' inside %v:(%v, %v)\n",
@@ -71,4 +72,15 @@ grid_layer_load :: proc(self: ^Grid_Layer, name: string) -> bool
 grid_layer_unload :: proc(self: ^Grid_Layer)
 {
     delete(self.values)
+}
+
+grid_layer_find :: proc(self: ^Grid_Layer, index: int) -> ^int
+{
+    count := len(self.values)
+
+    if 0 <= index && index < count {
+        return &self.values[index]
+    }
+
+    return nil
 }

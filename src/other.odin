@@ -7,13 +7,13 @@ import sdli "vendor:sdl2/image"
 
 import "pax"
 
-TITLE_GRID    :: "data/scene/title/table_grid.csv"
-TITLE_TEXTURE :: "data/scene/title/table_texture.csv"
-TITLE_SPRITE  :: "data/scene/title/table_sprite.csv"
+OTHER_GRID    :: "data/scene/other/table_grid.csv"
+OTHER_TEXTURE :: "data/scene/other/table_texture.csv"
+OTHER_SPRITE  :: "data/scene/other/table_sprite.csv"
 
-TITLE_GRID_SIZE :: [2]int {24, 17}
+OTHER_GRID_SIZE :: [2]int {24, 17}
 
-Title_Scene :: struct
+Other_Scene :: struct
 {
     camera: pax.Camera,
 
@@ -41,7 +41,7 @@ Title_Scene :: struct
     state:  int,
 }
 
-title_player_keyboard :: proc(self: ^Title_Scene, event: sdl.KeyboardEvent) -> int {
+other_player_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> int {
     player := pax.group_find(&self.player_group, self.player)
 
     if event.type == .KEYUP {
@@ -65,7 +65,7 @@ title_player_keyboard :: proc(self: ^Title_Scene, event: sdl.KeyboardEvent) -> i
     return self.state
 }
 
-title_camera_keyboard :: proc(self: ^Title_Scene, event: sdl.KeyboardEvent) -> int {
+other_camera_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> int {
     if event.type == .KEYDOWN {
         #partial switch event.keysym.sym {
             case .P, .PLUS,  .KP_PLUS:  self.camera.zoom += 1
@@ -76,27 +76,27 @@ title_camera_keyboard :: proc(self: ^Title_Scene, event: sdl.KeyboardEvent) -> i
     return self.state
 }
 
-title_scene_keyboard :: proc(self: ^Title_Scene, event: sdl.KeyboardEvent) -> int {
+other_scene_keyboard :: proc(self: ^Other_Scene, event: sdl.KeyboardEvent) -> int {
     if event.type == .KEYUP {
         #partial switch event.keysym.sym {
             case .ESCAPE: self.state = -1
 
             case .R: {
-                title_scene_unload(self)
+                other_scene_unload(self)
 
-                if title_scene_load(self) == false {
+                if other_scene_load(self) == false {
                     self.state = -1
                 }
             }
 
-            case .C: self.state = 2
+            case .C: self.state = 1
         }
     }
 
     return self.state
 }
 
-title_scene_start :: proc(self: ^Title_Scene, stage: ^Game) -> bool
+other_scene_start :: proc(self: ^Other_Scene, stage: ^Game) -> bool
 {
     self.camera.zoom = f32(stage.scale)
 
@@ -107,7 +107,7 @@ title_scene_start :: proc(self: ^Title_Scene, stage: ^Game) -> bool
 
     pax.renderer_init(&self.graphics, self.renderer, &self.camera, &self.sprite_table, &self.texture_table)
 
-    pax.grid_table_init(&self.grid_table, TITLE_GRID_SIZE, TILE_SIZE)
+    pax.grid_table_init(&self.grid_table, OTHER_GRID_SIZE, TILE_SIZE)
     pax.texture_table_init(&self.texture_table, self.renderer)
     pax.sprite_table_init(&self.sprite_table)
 
@@ -121,23 +121,23 @@ title_scene_start :: proc(self: ^Title_Scene, stage: ^Game) -> bool
 
     pax.group_insert(&self.player_group, self.player)
 
-    pax.channel_connect(&self.keyboard_channel, auto_cast title_player_keyboard, self)
-    pax.channel_connect(&self.keyboard_channel, auto_cast title_camera_keyboard, self)
-    pax.channel_connect(&self.keyboard_channel, auto_cast title_scene_keyboard, self)
+    pax.channel_connect(&self.keyboard_channel, auto_cast other_player_keyboard, self)
+    pax.channel_connect(&self.keyboard_channel, auto_cast other_camera_keyboard, self)
+    pax.channel_connect(&self.keyboard_channel, auto_cast other_scene_keyboard, self)
 
-    if title_scene_load(self) == false { return false }
+    if other_scene_load(self) == false { return false }
 
     sdl.ShowWindow(self.window)
 
     return true
 }
 
-title_scene_stop :: proc(self: ^Title_Scene)
+other_scene_stop :: proc(self: ^Other_Scene)
 {
     sdl.HideWindow(self.window)
 }
 
-title_scene_load :: proc(self: ^Title_Scene) -> bool
+other_scene_load :: proc(self: ^Other_Scene) -> bool
 {
     if self.loaded { return self.loaded }
 
@@ -145,9 +145,9 @@ title_scene_load :: proc(self: ^Title_Scene) -> bool
     self.camera.offset.x = f32(WINDOW_SIZE.x) / 2 - f32(TILE_SIZE.x) / 2
     self.camera.offset.y = f32(WINDOW_SIZE.y) / 2 - f32(TILE_SIZE.y) / 2
 
-    if pax.grid_table_load(&self.grid_table, TITLE_GRID)          == false { return false }
-    if pax.texture_table_load(&self.texture_table, TITLE_TEXTURE) == false { return false }
-    if pax.sprite_table_load(&self.sprite_table, TITLE_SPRITE)    == false { return false }
+    if pax.grid_table_load(&self.grid_table, OTHER_GRID)          == false { return false }
+    if pax.texture_table_load(&self.texture_table, OTHER_TEXTURE) == false { return false }
+    if pax.sprite_table_load(&self.sprite_table, OTHER_SPRITE)    == false { return false }
 
     if pax.grid_stack_push(&self.sprite_grid, 1) == false { return false }
     if pax.grid_stack_push(&self.sprite_grid, 3) == false { return false }
@@ -184,7 +184,7 @@ title_scene_load :: proc(self: ^Title_Scene) -> bool
     return true
 }
 
-title_scene_unload :: proc(self: ^Title_Scene)
+other_scene_unload :: proc(self: ^Other_Scene)
 {
     pax.grid_stack_clear(&self.solid_grid)
     pax.grid_stack_clear(&self.sprite_grid)
@@ -196,17 +196,17 @@ title_scene_unload :: proc(self: ^Title_Scene)
     self.loaded = false
 }
 
-title_scene_enter :: proc(self: ^Title_Scene)
+other_scene_enter :: proc(self: ^Other_Scene)
 {
     self.state = 0
 }
 
-title_scene_leave :: proc(self: ^Title_Scene)
+other_scene_leave :: proc(self: ^Other_Scene)
 {
 
 }
 
-title_scene_input :: proc(self: ^Title_Scene) -> int
+other_scene_input :: proc(self: ^Other_Scene) -> int
 {
     event: sdl.Event
 
@@ -222,7 +222,7 @@ title_scene_input :: proc(self: ^Title_Scene) -> int
     return self.state
 }
 
-title_scene_step :: proc(self: ^Title_Scene, delta: f32)
+other_scene_step :: proc(self: ^Other_Scene, delta: f32)
 {
     for index in 0 ..< self.player_group.count {
         player := &self.player_group.values[index]
@@ -258,7 +258,7 @@ title_scene_step :: proc(self: ^Title_Scene, delta: f32)
     }
 }
 
-title_sprite_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
+other_sprite_layer_draw :: proc(self: ^Other_Scene, index: int, cell: [2]int)
 {
     value := pax.grid_stack_find(&self.sprite_grid, index, cell)
     point := pax.cell_to_point(&self.grid_table, cell)
@@ -270,7 +270,7 @@ title_sprite_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
     }
 }
 
-title_player_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
+other_player_layer_draw :: proc(self: ^Other_Scene, index: int, cell: [2]int)
 {
     value := pax.grid_stack_find(&self.sprite_grid, index, cell)
 
@@ -283,7 +283,7 @@ title_player_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
     }
 }
 
-title_scene_draw :: proc(self: ^Title_Scene, extra: f32)
+other_scene_draw :: proc(self: ^Other_Scene, extra: f32)
 {
     assert(sdl.RenderClear(self.renderer) == 0,
         sdl.GetErrorString())
@@ -292,34 +292,34 @@ title_scene_draw :: proc(self: ^Title_Scene, extra: f32)
 
     for row in corners.z ..= corners.w {
         for col in corners.x ..= corners.y {
-            title_sprite_layer_draw(self, 0, {col, row})
-            title_sprite_layer_draw(self, 1, {col, row})
+            other_sprite_layer_draw(self, 0, {col, row})
+            other_sprite_layer_draw(self, 1, {col, row})
         }
     }
 
     for row in corners.z ..= corners.w {
         for col in corners.x ..= corners.y {
-            title_sprite_layer_draw(self, 2, {col, row})
-            title_player_layer_draw(self, 3, {col, row})
+            other_sprite_layer_draw(self, 2, {col, row})
+            other_player_layer_draw(self, 3, {col, row})
         }
     }
 
     sdl.RenderPresent(self.renderer)
 }
 
-title_scene :: proc(title: ^Title_Scene) -> pax.Scene
+other_scene :: proc(other: ^Other_Scene) -> pax.Scene
 {
     self := pax.Scene {}
 
-    self.instance = auto_cast title
+    self.instance = auto_cast other
 
-    self.proc_start = auto_cast title_scene_start
-    self.proc_stop  = auto_cast title_scene_stop
-    self.proc_enter = auto_cast title_scene_enter
-    self.proc_leave = auto_cast title_scene_leave
-    self.proc_input = auto_cast title_scene_input
-    self.proc_step  = auto_cast title_scene_step
-    self.proc_draw  = auto_cast title_scene_draw
+    self.proc_start = auto_cast other_scene_start
+    self.proc_stop  = auto_cast other_scene_stop
+    self.proc_enter = auto_cast other_scene_enter
+    self.proc_leave = auto_cast other_scene_leave
+    self.proc_input = auto_cast other_scene_input
+    self.proc_step  = auto_cast other_scene_step
+    self.proc_draw  = auto_cast other_scene_draw
 
     return self
 }

@@ -7,8 +7,16 @@ main :: proc()
     game  := Game {}
     stage := game_stage(&game)
 
-    title := Title_Scene {}
-    scene := title_scene(&title)
+    pax.stage_init(&stage)
 
-    pax.stage_loop(&stage, &scene)
+    title := Title_Scene {}
+    pax.stage_push(&stage, title_scene(&title))
+
+    other := Other_Scene {}
+    pax.stage_push(&stage, other_scene(&other))
+
+    stage.config.frame_rate = 30
+    stage.config.frame_skip = 30
+
+    pax.stage_loop(&stage, 0)
 }

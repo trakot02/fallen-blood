@@ -3,7 +3,7 @@ package pax
 import "core:time"
 import "core:fmt"
 
-Loop_Config :: struct {
+Stage_Config :: struct {
     frame_rate: i64,
     frame_skip: i64,
     frame_tick: time.Tick,
@@ -11,15 +11,73 @@ Loop_Config :: struct {
 
 Stage :: struct
 {
-    config: Loop_Config,
+    config: Stage_Config,
+    scenes: [dynamic]Scene,
 
     instance: rawptr,
 
-    proc_start: proc(self: rawptr, config: ^Loop_Config),
+    proc_start: proc(self: rawptr) -> bool,
     proc_stop:  proc(self: rawptr),
 }
 
-stage_delta :: proc(config: ^Loop_Config) -> i64
+stage_init :: proc(stage: ^Stage, allocator := context.allocator)
+{
+    stage.scenes = make([dynamic]Scene, allocator)
+}
+
+stage_destroy :: proc(stage: ^Stage)
+{
+    delete(stage.scenes)
+}
+
+stage_push :: proc(stage: ^Stage, scene: Scene)
+{
+    append(&stage.scenes, scene)
+}
+
+stage_clear :: proc(stage: ^Stage)
+{
+    clear(&stage.scenes)
+}
+
+stage_start :: proc(stage: ^Stage)-> bool
+{
+    state := stage.proc_start(stage.instance)
+    index := 0
+    count := len(stage.scenes)
+
+    if state == true {
+        for idx := 0; idx < count; idx += 1 {
+            state = scene_start(&stage.scenes[idx], stage.instance)
+
+            if state == false {
+                index = idx
+                break
+            }
+        }
+    }
+
+    if state == false {
+        for idx := index; idx > 0; idx -= 1 {
+            scene_stop(&stage.scenes[idx - 1])
+        }
+    }
+
+    return state
+}
+
+stage_stop :: proc(stage: ^Stage)
+{
+    count := len(stage.scenes)
+
+    for idx := count; idx > 0; idx -= 1 {
+        scene_stop(&stage.scenes[idx - 1])
+    }
+
+    stage.proc_stop(stage.instance)
+}
+
+stage_delta :: proc(config: ^Stage_Config) -> i64
 {
     delta := time.tick_lap_time(
         &config.frame_tick)
@@ -29,26 +87,14 @@ stage_delta :: proc(config: ^Loop_Config) -> i64
     return nano
 }
 
-stage_start :: proc(stage: ^Stage, config: ^Loop_Config)
+stage_loop :: proc(stage: ^Stage, index: int) -> bool
 {
-    stage.proc_start(stage.instance, config)
-}
+    count := len(stage.scenes)
 
-stage_stop :: proc(stage: ^Stage)
-{
-    stage.proc_stop(stage.instance)
-}
+    if index < 0 || index >= count { return false }
 
-stage_loop :: proc(stage: ^Stage, scene: ^Scene)
-{
-    loop := true
-
-    stage_start(stage, &stage.config)
-
-    if scene_start(scene, stage.instance) == false {
-        stage_stop(stage)
-
-        return
+    if stage_start(stage) == false {
+        return false
     }
 
     skip: i64 = stage.config.frame_skip
@@ -59,6 +105,11 @@ stage_loop :: proc(stage: ^Stage, scene: ^Scene)
     diff: i64 = 0
 
     step: f32 = 1 / f32(stage.config.frame_rate)
+
+    scene := &stage.scenes[index]
+    loop  := true
+
+    scene_enter(scene)
 
     for loop {
         diff = stage_delta(&stage.config)
@@ -75,11 +126,23 @@ stage_loop :: proc(stage: ^Stage, scene: ^Scene)
             cntr += 1
         }
 
-        loop = scene_input(scene)
+        index := scene_input(scene)
+
+        if index < 0 { loop = false }
+
+        if index > 0 {
+            scene_leave(scene)
+
+            scene = &stage.scenes[index - 1]
+
+            scene_enter(scene)
+        }
     }
 
-    scene_stop(scene)
+    scene_leave(scene)
     stage_stop(stage)
+
+    return true
 }
 
 Scene :: struct
@@ -88,7 +151,9 @@ Scene :: struct
 
     proc_start: proc(self: rawptr, stage: rawptr) -> bool,
     proc_stop:  proc(self: rawptr),
-    proc_input: proc(self: rawptr) -> bool,
+    proc_enter: proc(self: rawptr),
+    proc_leave: proc(self: rawptr),
+    proc_input: proc(self: rawptr) -> int,
     proc_step:  proc(self: rawptr, delta: f32),
     proc_draw:  proc(self: rawptr, frame: f32),
 }
@@ -103,7 +168,17 @@ scene_stop :: proc(scene: ^Scene)
     scene.proc_stop(scene.instance)
 }
 
-scene_input :: proc(scene: ^Scene) -> bool
+scene_enter :: proc(scene: ^Scene)
+{
+    scene.proc_enter(scene.instance)
+}
+
+scene_leave :: proc(scene: ^Scene)
+{
+    scene.proc_leave(scene.instance)
+}
+
+scene_input :: proc(scene: ^Scene) -> int
 {
     return scene.proc_input(scene.instance)
 }

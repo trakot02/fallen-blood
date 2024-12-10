@@ -34,7 +34,7 @@ grid_stack_push :: proc(self: ^Grid_Stack, index: int) -> bool
     count := len(self.table.layers)
 
     if 0 <= index && index < count {
-        index, error := append(&self.layers, &self.table.layers[index])
+        _, error := append(&self.layers, &self.table.layers[index])
 
         if error == nil {
             return true
@@ -69,9 +69,9 @@ grid_stack_find_value :: proc(self: ^Grid_Stack, index: int, cell: [2]int) -> ^i
 
     if 0 <= index && index < count {
         layer := self.layers[index]
-        index := cell.y * self.table.size.x + cell.x
+        temp  := cell.y * self.table.size.x + cell.x
 
-        return &layer.values[index]
+        return grid_layer_find(layer, temp)
     }
 
     return nil

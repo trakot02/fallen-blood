@@ -3,10 +3,10 @@ package pax
 Handler :: struct ($T: typeid)
 {
     instance:  rawptr,
-    call_proc: proc(self: rawptr, event: T) -> bool,
+    call_proc: proc(self: rawptr, event: T) -> int,
 }
 
-handler_init_proc :: proc(procedure: proc(_: rawptr, _: $T) -> bool) -> Handler(T)
+handler_init_proc :: proc(procedure: proc(_: rawptr, _: $T) -> int) -> Handler(T)
 {
     value := Handler(T) {}
 
@@ -15,7 +15,7 @@ handler_init_proc :: proc(procedure: proc(_: rawptr, _: $T) -> bool) -> Handler(
     return value
 }
 
-handler_init_pair :: proc(procedure: proc(_: rawptr, _: $T) -> bool, instance: rawptr) -> Handler(T)
+handler_init_pair :: proc(procedure: proc(_: rawptr, _: $T) -> int, instance: rawptr) -> Handler(T)
 {
     value := Handler(T) {}
 
@@ -30,7 +30,7 @@ Channel :: struct ($T: typeid)
     items: [dynamic]Handler(T),
 }
 
-handler_call :: proc(self: ^Handler($T), value: T) -> bool
+handler_call :: proc(self: ^Handler($T), value: T) -> int
 {
     return self.call_proc(self.instance, value)
 }
@@ -50,12 +50,12 @@ channel_connect_full :: proc(self: ^Channel($T), handler: Handler(T))
     append(&self.items, handler)
 }
 
-channel_connect_proc :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T) -> bool)
+channel_connect_proc :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T) -> int)
 {
     append(&self.items, handler_init_proc(procedure))
 }
 
-channel_connect_pair :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T) -> bool, instance: rawptr)
+channel_connect_pair :: proc(self: ^Channel($T), procedure: proc(_: rawptr, _: T) -> int, instance: rawptr)
 {
     append(&self.items, handler_init_pair(procedure, instance))
 }
@@ -68,15 +68,15 @@ channel_connect :: proc {
 
 // TODO: disconnect stuff with linear search
 
-channel_send :: proc(self: ^Channel($T), event: T) -> bool
+channel_send :: proc(self: ^Channel($T), event: T) -> int
 {
     for &handler in self.items {
         result := handler_call(&handler, event)
 
-        if result == false {
+        if result < 0 {
             return result
         }
     }
 
-    return true
+    return 0
 }

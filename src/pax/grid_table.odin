@@ -88,7 +88,7 @@ grid_table_unload :: proc(self: ^Grid_Table)
         grid_layer_unload(&layer)
     }
 
-    delete(self.layers)
+    clear(&self.layers)
 }
 
 grid_table_find :: proc(self: ^Grid_Table, index: int) -> ^Grid_Layer

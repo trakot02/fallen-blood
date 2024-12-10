@@ -1,5 +1,7 @@
 data/scene/title/grid/ground_solid.csv
 data/scene/title/grid/ground_sprite.csv
+data/scene/title/grid/floor_solid.csv
+data/scene/title/grid/floor_sprite.csv
 data/scene/title/grid/object_solid.csv
 data/scene/title/grid/object_sprite.csv
 data/scene/title/grid/player.csv

@@ -1,5 +1,7 @@
 package main
 
+import "core:fmt"
+
 import sdl  "vendor:sdl2"
 import sdli "vendor:sdl2/image"
 
@@ -16,15 +18,19 @@ Game :: struct
     renderer: ^sdl.Renderer,
 }
 
-game_start :: proc(stage: ^Game, config: ^pax.Loop_Config)
+game_start :: proc(stage: ^Game) -> bool
 {
-    config.frame_rate = 30
-    config.frame_skip = 30
+    if sdl.Init(sdl.INIT_VIDEO) != 0 {
+        fmt.printf("FATAL: %v", sdl.GetErrorString())
 
-    assert(sdl.Init(sdl.INIT_VIDEO) == 0, sdl.GetErrorString())
+        return false
+    }
 
-    assert(sdli.Init(sdli.INIT_PNG) == sdli.INIT_PNG,
-        sdl.GetErrorString())
+    if sdli.Init(sdli.INIT_PNG) != sdli.INIT_PNG {
+        fmt.printf("FATAL: %v", sdl.GetErrorString())
+
+        return false
+    }
 
     stage.scale = 5
 
@@ -33,11 +39,21 @@ game_start :: proc(stage: ^Game, config: ^pax.Loop_Config)
         i32(WINDOW_SIZE.x * stage.scale),
         i32(WINDOW_SIZE.y * stage.scale), {.HIDDEN})
 
-    assert(stage.window != nil, sdl.GetErrorString())
+    if stage.window == nil {
+        fmt.printf("FATAL: %v", sdl.GetErrorString())
+
+        return false
+    }
 
     stage.renderer = sdl.CreateRenderer(stage.window, -1, {.ACCELERATED})
 
-    assert(stage.renderer != nil, sdl.GetErrorString())
+    if stage.renderer == nil {
+        fmt.printf("FATAL: %v", sdl.GetErrorString())
+
+        return false
+    }
+
+    return true
 }
 
 game_stop :: proc(stage: ^Game)
