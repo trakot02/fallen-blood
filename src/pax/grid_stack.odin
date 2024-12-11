@@ -43,6 +43,65 @@ grid_stack_destroy :: proc(self: ^Grid_Stack)
     delete(self.layers)
 }
 
+grid_stack_load :: proc(self: ^Grid_Stack, name: string) -> bool
+{
+    value, error := os.open(name)
+
+    if error != nil {
+        fmt.printf("FATAL: Unable to open file '%v'\n",
+            name)
+
+        return false
+    }
+
+    defer os.close(value)
+
+    reader := csv.Reader {}
+
+    reader.reuse_record        = true
+    reader.reuse_record_buffer = true
+
+    csv.reader_init(&reader, os.stream_from_handle(value))
+
+    defer csv.reader_destroy(&reader)
+
+    for record, row in csv.iterator_next(&reader) {
+        for &field, col in record {
+            field = strings.trim(field, " \n\t\r\v\f")
+
+            temp, succ := strconv.parse_int(field)
+
+            if succ == false {
+                fmt.printf("FATAL: Unable to parse '%v' inside %v:(%v, %v)\n",
+                    field, col, row)
+
+                return false
+            }
+
+            if temp < 0 && temp >= len(self.table.layers) {
+                return false
+            }
+
+            switch col {
+                case 0: {
+                    if grid_stack_push(self, temp) == false {
+                        return false
+                    }
+                }
+
+                case: return false
+            }
+        }
+    }
+
+    return true
+}
+
+grid_stack_unload :: proc(self: ^Grid_Stack)
+{
+    clear(&self.layers)
+}
+
 grid_stack_push :: proc(self: ^Grid_Stack, index: int) -> bool
 {
     count := len(self.table.layers)

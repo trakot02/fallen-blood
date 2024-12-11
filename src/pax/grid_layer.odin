@@ -50,10 +50,10 @@ grid_layer_load :: proc(self: ^Grid_Layer, name: string) -> bool
             temp, succ := strconv.parse_int(field)
 
             if succ == false {
-                fmt.printf("ERROR: Unable to parse '%v' inside %v:(%v, %v)\n",
+                fmt.printf("FATAL: Unable to parse '%v' inside %v:(%v, %v)\n",
                     field, col, row)
 
-                temp = -1
+                return false 
             }
 
             _, error := append(&self.values, temp)

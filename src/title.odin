@@ -7,7 +7,8 @@ import sdli "vendor:sdl2/image"
 
 import "pax"
 
-TITLE_GRID    :: "data/scene/title/table_grid.csv"
+TITLE_GRID_1  :: "data/scene/title/grid_1/chunk.csv"
+TITLE_GRID_2  :: "data/scene/title/grid_1/chunk.csv"
 TITLE_TEXTURE :: "data/scene/title/table_texture.csv"
 TITLE_SPRITE  :: "data/scene/title/table_sprite.csv"
 
@@ -24,13 +25,10 @@ Title_Scene :: struct
 
     keyboard_channel: pax.Channel(sdl.KeyboardEvent),
 
-    grid_table:    pax.Grid_Table,
-    texture_table: pax.Texture_Table,
-    sprite_table:  pax.Sprite_Table,
+    grid_1: pax.Grid_Chunk,
 
-    sprite_grid:  pax.Grid_Stack,
-    solid_grid:   pax.Grid_Stack,
-    event_grid:   pax.Grid_Stack,
+    sprite_table:  pax.Sprite_Table,
+    texture_table: pax.Texture_Table,
 
     world: pax.World,
 
@@ -38,10 +36,7 @@ Title_Scene :: struct
 
     player: int,
 
-    loaded: bool,
-    state:  int,
-
-    grid_handlers: [1]pax.Handler(rawptr),
+    state: int,
 }
 
 
@@ -88,27 +83,6 @@ title_scene_keyboard :: proc(self: ^Title_Scene, event: sdl.KeyboardEvent) {
                     self.state = -1
                 }
             }
-
-            case .C: self.state = 2
-        }
-    }
-}
-
-title_scene_change :: proc(self: ^Title_Scene, value: rawptr)
-{
-    self.state = 2
-}
-
-title_scene_collision :: proc(self: ^Title_Scene, event: pax.Grid_Swap_Event)
-{
-    if event.source == &self.solid_grid && event.layer == 3 {
-        value := pax.grid_stack_find(event.source, event.layer, event.cell1)
-        actor := pax.group_find(&self.player_group, value^)
-
-        handler := pax.grid_stack_find(&self.event_grid, 0, event.cell2)
-
-        if value^ == self.player && 0 <= handler^ && handler^ < len(self.grid_handlers) {
-            pax.handler_call(&self.grid_handlers[handler^], nil)
         }
     }
 }
@@ -121,16 +95,11 @@ title_scene_start :: proc(self: ^Title_Scene, stage: ^Game) -> bool
     self.renderer = stage.renderer
 
     pax.channel_init(&self.keyboard_channel)
-
     pax.renderer_init(&self.graphics, self.renderer, &self.camera, &self.sprite_table, &self.texture_table)
 
-    pax.grid_table_init(&self.grid_table, TITLE_GRID_SIZE, TILE_SIZE)
-    pax.texture_table_init(&self.texture_table, self.renderer)
+    pax.grid_chunk_init(&self.grid_1, TITLE_GRID_SIZE, TILE_SIZE)
     pax.sprite_table_init(&self.sprite_table)
-
-    pax.grid_stack_init(&self.sprite_grid, &self.grid_table)
-    pax.grid_stack_init(&self.solid_grid, &self.grid_table)
-    pax.grid_stack_init(&self.event_grid, &self.grid_table)
+    pax.texture_table_init(&self.texture_table, self.renderer)
 
     pax.world_init(&self.world)
     pax.group_init(&self.player_group)
@@ -142,10 +111,6 @@ title_scene_start :: proc(self: ^Title_Scene, stage: ^Game) -> bool
     pax.channel_connect(&self.keyboard_channel, auto_cast title_player_keyboard, self)
     pax.channel_connect(&self.keyboard_channel, auto_cast title_camera_keyboard, self)
     pax.channel_connect(&self.keyboard_channel, auto_cast title_scene_keyboard, self)
-
-    pax.channel_connect(&self.solid_grid.swap, auto_cast title_scene_collision, self)
-
-    self.grid_handlers[0] = pax.handler_init_pair(auto_cast title_scene_change, self)
 
     if title_scene_load(self) == false { return false }
 
@@ -161,73 +126,58 @@ title_scene_stop :: proc(self: ^Title_Scene)
 
 title_scene_load :: proc(self: ^Title_Scene) -> bool
 {
-    if self.loaded { return self.loaded }
-
     self.camera.size     = WINDOW_SIZE
     self.camera.offset.x = WINDOW_SIZE.x / 2 - TILE_SIZE.x / 2
     self.camera.offset.y = WINDOW_SIZE.y / 2 - TILE_SIZE.y / 2
 
-    if pax.grid_table_load(&self.grid_table, TITLE_GRID)          == false { return false }
-    if pax.texture_table_load(&self.texture_table, TITLE_TEXTURE) == false { return false }
+    if pax.grid_chunk_load(&self.grid_1, TITLE_GRID_1) == false {
+        return false
+    }
+
     if pax.sprite_table_load(&self.sprite_table, TITLE_SPRITE)    == false { return false }
-
-    if pax.grid_stack_push(&self.sprite_grid, 1) == false { return false }
-    if pax.grid_stack_push(&self.sprite_grid, 3) == false { return false }
-    if pax.grid_stack_push(&self.sprite_grid, 5) == false { return false }
-    if pax.grid_stack_push(&self.sprite_grid, 6) == false { return false }
-
-    if pax.grid_stack_push(&self.solid_grid, 0) == false { return false }
-    if pax.grid_stack_push(&self.solid_grid, 2) == false { return false }
-    if pax.grid_stack_push(&self.solid_grid, 4) == false { return false }
-    if pax.grid_stack_push(&self.solid_grid, 6) == false { return false }
-
-    if pax.grid_stack_push(&self.event_grid, 7) == false { return false }
+    if pax.texture_table_load(&self.texture_table, TITLE_TEXTURE) == false { return false }
 
     player := pax.group_find(&self.player_group, self.player)
 
     player.visible.sprite = 13
+    player.visible.point  = {32, 32}
+    player.movement.point = {32, 32}
     player.movement.speed = 128
     player.movement.state = .STILL
     player.camera         = &self.camera
 
-    layer := pax.grid_stack_find(&self.solid_grid, 3)
+    layer := pax.grid_stack_find(&self.grid_1.stacks[0], 3)
 
     for value, index in layer.values {
         actor := pax.group_find(&self.player_group, value)
 
         if actor == nil { continue }
 
-        point := pax.cell_to_point(&self.grid_table,
-            pax.index_to_cell(&self.grid_table, index))
+        point := pax.cell_to_point(&self.grid_1.table,
+            pax.index_to_cell(&self.grid_1.table, index))
 
         actor.movement.point = {f32(point.x), f32(point.y)}
     }
-
-    self.loaded = true
 
     return true
 }
 
 title_scene_unload :: proc(self: ^Title_Scene)
 {
-    pax.grid_stack_clear(&self.solid_grid)
-    pax.grid_stack_clear(&self.sprite_grid)
-
     pax.sprite_table_unload(&self.sprite_table)
     pax.texture_table_unload(&self.texture_table)
-    pax.grid_table_unload(&self.grid_table)
 
-    self.loaded = false
+    pax.grid_chunk_unload(&self.grid_1)
 }
 
 title_scene_enter :: proc(self: ^Title_Scene)
 {
-    self.state = 0
+    // empty.
 }
 
 title_scene_leave :: proc(self: ^Title_Scene)
 {
-
+    // empty.
 }
 
 title_scene_input :: proc(self: ^Title_Scene) -> int
@@ -264,12 +214,12 @@ title_scene_step :: proc(self: ^Title_Scene, delta: f32)
             case {-1, -1}: player.visible.sprite = 16
         }
 
-        for index in 0 ..< len(self.solid_grid.layers) {
-            angle = movement_test(&player.movement, &self.solid_grid, angle, index)
+        for index in 0 ..< len(self.grid_1.stacks[0].layers) {
+            angle = movement_test(&player.movement, &self.grid_1.stacks[0], angle, index)
         }
 
-        if movement_step(&player.movement, &self.solid_grid, angle, delta) {
-            movement_grid(&player.movement, &self.solid_grid, angle, 3)
+        if movement_step(&player.movement, &self.grid_1.stacks[0], angle, delta) {
+            movement_grid(&player.movement, &self.grid_1.stacks[0], angle, 3)
         }
 
         player.visible.point = {
@@ -285,8 +235,8 @@ title_scene_step :: proc(self: ^Title_Scene, delta: f32)
 
 title_sprite_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
 {
-    value := pax.grid_stack_find(&self.sprite_grid, index, cell)
-    point := pax.cell_to_point(&self.grid_table, cell)
+    value := pax.grid_stack_find(&self.grid_1.stacks[1], index, cell)
+    point := pax.cell_to_point(&self.grid_1.table, cell)
 
     if value != nil {
         pax.renderer_draw_sprite(&self.graphics, value^, point)
@@ -295,7 +245,7 @@ title_sprite_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
 
 title_player_layer_draw :: proc(self: ^Title_Scene, index: int, cell: [2]int)
 {
-    value := pax.grid_stack_find(&self.sprite_grid, index, cell)
+    value := pax.grid_stack_find(&self.grid_1.stacks[1], index, cell)
 
     if value != nil {
         entity := pax.group_find(&self.player_group, value^)
@@ -311,7 +261,7 @@ title_scene_draw :: proc(self: ^Title_Scene, extra: f32)
     assert(sdl.RenderClear(self.renderer) == 0,
         sdl.GetErrorString())
 
-    corners := pax.camera_corners(&self.camera, &self.grid_table)
+    corners := pax.camera_corners(&self.camera, &self.grid_1.table)
 
     for row in corners.z ..= corners.w {
         for col in corners.x ..= corners.y {

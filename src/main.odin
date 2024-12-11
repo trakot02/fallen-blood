@@ -12,11 +12,9 @@ main :: proc()
     title := Title_Scene {}
     pax.stage_push(&stage, title_scene(&title))
 
-    other := Other_Scene {}
-    pax.stage_push(&stage, other_scene(&other))
-
     stage.config.frame_rate = 60
     stage.config.frame_skip = 60
 
     pax.stage_loop(&stage, 0)
+    pax.stage_destroy(&stage)
 }

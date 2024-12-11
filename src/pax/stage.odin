@@ -20,35 +20,35 @@ Stage :: struct
     proc_stop:  proc(self: rawptr),
 }
 
-stage_init :: proc(stage: ^Stage, allocator := context.allocator)
+stage_init :: proc(self: ^Stage, allocator := context.allocator)
 {
-    stage.scenes = make([dynamic]Scene, allocator)
+    self.scenes = make([dynamic]Scene, allocator)
 }
 
-stage_destroy :: proc(stage: ^Stage)
+stage_destroy :: proc(self: ^Stage)
 {
-    delete(stage.scenes)
+    delete(self.scenes)
 }
 
-stage_push :: proc(stage: ^Stage, scene: Scene)
+stage_push :: proc(self: ^Stage, scene: Scene)
 {
-    append(&stage.scenes, scene)
+    append(&self.scenes, scene)
 }
 
-stage_clear :: proc(stage: ^Stage)
+stage_clear :: proc(self: ^Stage)
 {
-    clear(&stage.scenes)
+    clear(&self.scenes)
 }
 
-stage_start :: proc(stage: ^Stage)-> bool
+stage_start :: proc(self: ^Stage)-> bool
 {
-    state := stage.proc_start(stage.instance)
+    state := self.proc_start(self.instance)
     index := 0
-    count := len(stage.scenes)
+    count := len(self.scenes)
 
     if state == true {
         for idx := 0; idx < count; idx += 1 {
-            state = scene_start(&stage.scenes[idx], stage.instance)
+            state = scene_start(&self.scenes[idx], self.instance)
 
             if state == false {
                 index = idx
@@ -59,22 +59,22 @@ stage_start :: proc(stage: ^Stage)-> bool
 
     if state == false {
         for idx := index; idx > 0; idx -= 1 {
-            scene_stop(&stage.scenes[idx - 1])
+            scene_stop(&self.scenes[idx - 1])
         }
     }
 
     return state
 }
 
-stage_stop :: proc(stage: ^Stage)
+stage_stop :: proc(self: ^Stage)
 {
-    count := len(stage.scenes)
+    count := len(self.scenes)
 
     for idx := count; idx > 0; idx -= 1 {
-        scene_stop(&stage.scenes[idx - 1])
+        scene_stop(&self.scenes[idx - 1])
     }
 
-    stage.proc_stop(stage.instance)
+    self.proc_stop(self.instance)
 }
 
 stage_delta :: proc(config: ^Stage_Config) -> i64
@@ -87,32 +87,32 @@ stage_delta :: proc(config: ^Stage_Config) -> i64
     return nano
 }
 
-stage_loop :: proc(stage: ^Stage, index: int) -> bool
+stage_loop :: proc(self: ^Stage, index: int) -> bool
 {
-    count := len(stage.scenes)
+    count := len(self.scenes)
 
     if index < 0 || index >= count { return false }
 
-    if stage_start(stage) == false {
+    if stage_start(self) == false {
         return false
     }
 
-    skip: i64 = stage.config.frame_skip
+    skip: i64 = self.config.frame_skip
     cntr: i64 = 0
 
-    nano: i64 = 1_000_000_000 / stage.config.frame_rate
+    nano: i64 = 1_000_000_000 / self.config.frame_rate
     elap: i64 = 0
     diff: i64 = 0
 
-    step: f32 = 1 / f32(stage.config.frame_rate)
+    step: f32 = 1 / f32(self.config.frame_rate)
 
-    scene := &stage.scenes[index]
+    scene := &self.scenes[index]
     loop  := true
 
     scene_enter(scene)
 
     for loop {
-        diff = stage_delta(&stage.config)
+        diff = stage_delta(&self.config)
 
         scene_draw(scene, 1 / f32(diff))
 
@@ -133,14 +133,14 @@ stage_loop :: proc(stage: ^Stage, index: int) -> bool
         if 0 < index && index <= count {
             scene_leave(scene)
 
-            scene = &stage.scenes[index - 1]
+            scene = &self.scenes[index - 1]
 
             scene_enter(scene)
         }
     }
 
     scene_leave(scene)
-    stage_stop(stage)
+    stage_stop(self)
 
     return true
 }
@@ -158,37 +158,37 @@ Scene :: struct
     proc_draw:  proc(self: rawptr, frame: f32),
 }
 
-scene_start :: proc(scene: ^Scene, stage: rawptr) -> bool
+scene_start :: proc(self: ^Scene, stage: rawptr) -> bool
 {
-    return scene.proc_start(scene.instance, stage)
+    return self.proc_start(self.instance, stage)
 }
 
-scene_stop :: proc(scene: ^Scene)
+scene_stop :: proc(self: ^Scene)
 {
-    scene.proc_stop(scene.instance)
+    self.proc_stop(self.instance)
 }
 
-scene_enter :: proc(scene: ^Scene)
+scene_enter :: proc(self: ^Scene)
 {
-    scene.proc_enter(scene.instance)
+    self.proc_enter(self.instance)
 }
 
-scene_leave :: proc(scene: ^Scene)
+scene_leave :: proc(self: ^Scene)
 {
-    scene.proc_leave(scene.instance)
+    self.proc_leave(self.instance)
 }
 
-scene_input :: proc(scene: ^Scene) -> int
+scene_input :: proc(self: ^Scene) -> int
 {
-    return scene.proc_input(scene.instance)
+    return self.proc_input(self.instance)
 }
 
-scene_step :: proc(scene: ^Scene, delta: f32)
+scene_step :: proc(self: ^Scene, delta: f32)
 {
-    scene.proc_step(scene.instance, delta)
+    self.proc_step(self.instance, delta)
 }
 
-scene_draw :: proc(scene: ^Scene, frame: f32)
+scene_draw :: proc(self: ^Scene, frame: f32)
 {
-    scene.proc_draw(scene.instance, frame)
+    self.proc_draw(self.instance, frame)
 }
