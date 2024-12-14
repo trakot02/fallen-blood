@@ -4,25 +4,25 @@ import "core:math/linalg"
 
 import "pax"
 
-Movement_State :: enum
+Motion_State :: enum
 {
     STILL, MOVING,
 }
 
-Movement :: struct
+Motion :: struct
 {
     point:  [2]f32,
     target: [2]f32,
     normal: [2]f32,
     speed:  f32,
-    state:  Movement_State,
+    state:  Motion_State,
 }
 
-movement_step :: proc(self: ^Movement, grid: ^pax.Grid_Stack, step: [2]int, delta: f32) -> bool
+motion_step :: proc(self: ^Motion, grid: ^pax.Grid, step: [2]int, delta: f32) -> bool
 {
     switch self.state {
         case .STILL: {
-            tile := pax.cell_to_point(grid.table, step)
+            tile := pax.cell_to_point(grid, step)
 
             if step.x == 0 && step.y == 0 { return false }
 
@@ -58,24 +58,24 @@ movement_step :: proc(self: ^Movement, grid: ^pax.Grid_Stack, step: [2]int, delt
     return false
 }
 
-movement_test :: proc(self: ^Movement, grid: ^pax.Grid_Stack, step: [2]int, index: int) -> [2]int
+motion_test :: proc(self: ^Motion, grid: ^pax.Grid, step: [2]int, stack: int, layer: int) -> [2]int
 {
     step := step
-    cell := pax.point_to_cell(grid.table, [2]int {
+    cell := pax.point_to_cell(grid, [2]int {
         int(self.point.x), int(self.point.y),
     })
 
     if step.x == 0 && step.y == 0 { return step }
 
-    next_x := pax.grid_stack_find(grid, index, [2]int {cell.x + step.x, cell.y})
-    next_y := pax.grid_stack_find(grid, index, [2]int {cell.x, cell.y + step.y})
+    next_x := pax.grid_find_value(grid, stack, layer, [2]int {cell.x + step.x, cell.y})
+    next_y := pax.grid_find_value(grid, stack, layer, [2]int {cell.x, cell.y + step.y})
 
     if next_x == nil || next_x^ >= 0 { step.x = 0 }
     if next_y == nil || next_y^ >= 0 { step.y = 0 }
 
     if step.x == 0 && step.y == 0 { return step }
 
-    next := pax.grid_stack_find(grid, index, cell + step)
+    next := pax.grid_find_value(grid, stack, layer, cell + step)
 
     if next == nil || next^ >= 0 {
         step.x = 0
@@ -85,11 +85,19 @@ movement_test :: proc(self: ^Movement, grid: ^pax.Grid_Stack, step: [2]int, inde
     return step
 }
 
-movement_grid :: proc(self: ^Movement, grid: ^pax.Grid_Stack, step: [2]int, index: int)
+motion_grid :: proc(self: ^Motion, grid: ^pax.Grid, step: [2]int, stack: int, layer: int)
 {
-    cell := pax.point_to_cell(grid.table, [2]int {
+    cell := pax.point_to_cell(grid, [2]int {
         int(self.point.x), int(self.point.y)
     })
 
-    pax.grid_stack_swap(grid, index, cell, cell + step)
+    curr := pax.grid_find_value(grid, stack, layer, cell)
+    next := pax.grid_find_value(grid, stack, layer, cell + step)
+
+    if curr != nil && next != nil {
+        temp := curr^
+
+        curr^ = next^
+        next^ = temp
+    }
 }

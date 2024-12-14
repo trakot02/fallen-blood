@@ -1,19 +1,12 @@
 package pax
 
-import "core:fmt"
+import "core:log"
 
 World :: struct
 {
     first:  int,
     count:  int,
     actors: [dynamic]int,
-}
-
-Group :: struct ($T: typeid)
-{
-    count:  int,
-    actors: [dynamic]int,
-    values: [dynamic]T,
 }
 
 world_init :: proc(self: ^World, allocator := context.allocator)
@@ -38,9 +31,9 @@ world_create_actor :: proc(self: ^World) -> int
         _, error := append(&self.actors, actor)
 
         if error != nil {
-            fmt.printf("ERROR: Unable to create a new actor\n")
+            log.errorf("Unable to create a new actor\n")
 
-            return -1
+            actor = -1
         }
     } else {
         next := self.actors[self.first]
@@ -72,6 +65,13 @@ world_destroy_actor :: proc(self: ^World, actor: int)
     }
 }
 
+Group :: struct ($T: typeid)
+{
+    count:  int,
+    actors: [dynamic]int,
+    values: [dynamic]T,
+}
+
 group_init :: proc(self: ^Group($T), allocator := context.allocator)
 {
     self.actors = make([dynamic]int, allocator)
@@ -98,7 +98,7 @@ group_insert :: proc(self: ^Group($T), actor: int) -> ^T
         }
 
         if error != nil {
-            fmt.printf("ERROR: Unable to insert a value for the actor %v\n",
+            log.errorf("Unable to insert a value for the actor %v\n",
                 actor)
 
             return nil

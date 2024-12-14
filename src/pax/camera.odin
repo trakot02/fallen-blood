@@ -3,14 +3,15 @@ package pax
 import sdl  "vendor:sdl2"
 import sdli "vendor:sdl2/image"
 
-Camera :: struct {
-    size:   [2]int,
+Camera :: struct
+{
     follow: [2]int,
     offset: [2]int,
-    zoom:   [2]f32,
+    size:   [2]int,
+    scale:  [2]f32,
 }
 
-camera_move :: proc(self: ^Camera) -> [2]int
+camera_displ :: proc(self: ^Camera) -> [2]int
 {
     return {
         self.offset.x - self.follow.x,
@@ -18,20 +19,28 @@ camera_move :: proc(self: ^Camera) -> [2]int
     }
 }
 
-camera_zoom :: proc(self: ^Camera) -> [2]f32
+camera_scale :: proc(self: ^Camera) -> [2]f32
 {
-    return {
-        self.zoom.x,
-        self.zoom.y,
-    }
+    return {self.scale.x, self.scale.y}
 }
 
-camera_corners :: proc(self: ^Camera, grid: ^Grid_Table) -> [4]int
+camera_grid_follow :: proc(self: ^Camera, grid: ^Grid) -> [2]int
 {
-    follow := point_to_cell(grid, [2]int {int(self.follow.x), int(self.follow.y)})
-    size   := point_to_cell(grid, self.size)
-    start  := follow - size - 1
-    stop   := follow + size + 1
+    return point_to_cell(grid, self.follow)
+}
 
-    return {start.x, stop.x, start.y, stop.y}
+camera_grid_area :: proc(self: ^Camera, grid: ^Grid) -> [2][2]int
+{
+    follow := point_to_cell(grid, self.follow)
+    size   := point_to_cell(grid, self.size) + 1
+
+    return {follow - size, follow + size}
+}
+
+camera_on_key_press :: proc(event: sdl.KeyboardEvent, self: ^Camera)
+{
+    #partial switch event.keysym.sym {
+        case .P, .PLUS,  .KP_PLUS:  self.scale += 0.01
+        case .M, .MINUS, .KP_MINUS: self.scale -= 0.01
+    }
 }

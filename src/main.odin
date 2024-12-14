@@ -1,20 +1,29 @@
 package main
 
+import "core:log"
+
 import "pax"
 
 main :: proc()
 {
-    game  := Game {}
-    stage := game_stage(&game)
+    context.logger = log.create_console_logger(lowest = .Debug)
 
-    pax.stage_init(&stage)
+    app := pax.App {}
 
-    title := Title_Scene {}
-    pax.stage_push(&stage, title_scene(&title))
+    game := Game_Stage {}
+    main := Main_Scene {}
 
-    stage.config.frame_rate = 60
-    stage.config.frame_skip = 60
+    pax.app_init(&app)
+    pax.app_push(&app, main_scene(&main))
 
-    pax.stage_loop(&stage, 0)
-    pax.stage_destroy(&stage)
+    succ := pax.app_loop(&app, game_stage(&game), {
+        frame_rate = 60,
+        frame_skip = 60,
+    })
+
+    if succ == false {
+        log.errorf("result = %v", succ)
+    }
+
+    pax.app_destroy(&app)
 }
