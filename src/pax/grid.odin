@@ -127,3 +127,18 @@ grid_clear :: proc(self: ^Grid_Reader, value: ^Grid)
 {
     mem.free_all(self.allocator)
 }
+
+Grid_State :: struct
+{
+    grids: [dynamic]Grid,
+}
+
+grid_init :: proc(self: ^Grid_State, allocator := context.allocator)
+{
+    self.grids = make([dynamic]Grid, allocator)
+}
+
+grid_destroy :: proc(self: ^Grid_State)
+{
+    delete(self.grids)
+}

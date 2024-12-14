@@ -11,6 +11,7 @@ Main_Scene :: struct
 {
     window: ^pax.Window,
     render: pax.Render_State,
+    grid:   pax.Grid_State,
 
     camera: pax.Camera,
 
@@ -18,9 +19,7 @@ Main_Scene :: struct
 
     image_reader: pax.Image_Reader,
     sheet_reader: pax.Image_Sheet_Reader,
-
-    grid_reader: pax.Grid_Reader,
-    grid:        pax.Grid,
+    grid_reader:  pax.Grid_Reader,
 
     world:        pax.World,
     player_group: pax.Group(Player),
@@ -28,6 +27,7 @@ Main_Scene :: struct
     player: int,
 
     state: int,
+    active_grid: int,
 }
 
 main_scene_on_key_release :: proc(event: sdl.KeyboardEvent, self: ^Main_Scene)
@@ -56,6 +56,7 @@ main_scene_start :: proc(self: ^Main_Scene, stage: ^Game_Stage) -> bool
 
     pax.keyboard_init(&self.keyboard)
     pax.render_init(&self.render)
+    pax.grid_init(&self.grid)
     pax.world_init(&self.world)
     pax.group_init(&self.player_group)
 
@@ -114,6 +115,7 @@ main_scene_load :: proc(self: ^Main_Scene) -> bool
 
     grids := [?]string {
         "data/main_scene/grid/grid1.json",
+        "data/main_scene/grid/grid2.json",
     }
 
     for name in images {
@@ -144,11 +146,19 @@ main_scene_load :: proc(self: ^Main_Scene) -> bool
         }
     }
 
-    grid, succ := pax.grid_read(&self.grid_reader, grids[0])
+    for name in grids {
+        grid, succ := pax.grid_read(&self.grid_reader, name)
 
-    if succ == false { return false }
+        if succ == false { return false }
 
-    self.grid = grid
+        _, error := append(&self.grid.grids, grid)
+
+        if error != nil {
+            log.errorf("Unable to load grid %q\n", name)
+
+            return false
+        }
+    }
 
     player := pax.group_find(&self.player_group, self.player)
 
@@ -159,15 +169,15 @@ main_scene_load :: proc(self: ^Main_Scene) -> bool
     player.motion.speed = 128
     player.camera       = &self.camera
 
-    value := pax.grid_find_value(&self.grid, 0, 3,
-        pax.point_to_cell(&self.grid, player.sprite.point))
+    value := pax.grid_find_value(&self.grid.grids[self.active_grid], 0, 3,
+        pax.point_to_cell(&self.grid.grids[self.active_grid], player.sprite.point))
 
     if value == nil { return false }
 
     value^ = self.player
 
     self.camera.size   = WINDOW_SIZE
-    self.camera.offset = WINDOW_SIZE / 2 - self.grid.tile / 2
+    self.camera.offset = WINDOW_SIZE / 2 - self.grid.grids[self.active_grid].tile / 2
     self.camera.scale  = {4, 4}
 
     pax.window_resize(self.window, [2]int {
@@ -219,12 +229,12 @@ main_scene_step :: proc(self: ^Main_Scene, delta: f32)
             case {-1, -1}: player.sprite.frame = 7
         }
 
-        for layer in 0 ..< len(self.grid.stacks[0]) {
-            angle = motion_test(&player.motion, &self.grid, angle, 0, layer)
+        for layer in 0 ..< len(self.grid.grids[self.active_grid].stacks[0]) {
+            angle = motion_test(&player.motion, &self.grid.grids[self.active_grid], angle, 0, layer)
         }
 
-        if motion_step(&player.motion, &self.grid, angle, delta) {
-            motion_grid(&player.motion, &self.grid, angle, 0, 3)
+        if motion_step(&player.motion, &self.grid.grids[self.active_grid], angle, delta) {
+            motion_grid(&player.motion, &self.grid.grids[self.active_grid], angle, 0, 3)
         }
 
         player.sprite.point = {
@@ -240,24 +250,24 @@ main_scene_step :: proc(self: ^Main_Scene, delta: f32)
 
 main_scene_draw_sprite_layer :: proc(self: ^Main_Scene, layer: int, cell: [2]int)
 {
-    value := pax.grid_find_value(&self.grid, 1, layer, cell)
-    point := pax.cell_to_point(&self.grid, cell)
+    value := pax.grid_find_value(&self.grid.grids[self.active_grid], 1, layer, cell)
+    point := pax.cell_to_point(&self.grid.grids[self.active_grid], cell)
 
-    if value != nil {
-        sprite := pax.Sprite {
-            sheet = 0,
-            frame = value^,
-            point = point,
-        }
+    if value == nil { return }
 
-        pax.render_draw_sprite(&self.render, sprite)
+    sprite := pax.Sprite {
+        sheet = 0,
+        frame = value^,
+        point = point,
     }
+
+    pax.render_draw_sprite(&self.render, sprite)
 }
 
 main_scene_draw_player_layer :: proc(self: ^Main_Scene, layer: int, cell: [2]int)
 {
-    value := pax.grid_find_value(&self.grid, 1, layer, cell)
-    point := pax.cell_to_point(&self.grid, cell)
+    value := pax.grid_find_value(&self.grid.grids[self.active_grid], 1, layer, cell)
+    point := pax.cell_to_point(&self.grid.grids[self.active_grid], cell)
 
     if value == nil { return }
 
@@ -272,7 +282,7 @@ main_scene_draw :: proc(self: ^Main_Scene)
 {
     sdl.RenderClear(self.render.renderer)
 
-    area := pax.camera_grid_area(&self.camera, &self.grid)
+    area := pax.camera_grid_area(&self.camera, &self.grid.grids[self.active_grid])
 
     for row in area[0].y ..= area[1].y {
         for col in area[0].x ..= area[1].x {
