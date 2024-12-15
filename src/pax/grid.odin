@@ -142,3 +142,14 @@ grid_destroy :: proc(self: ^Grid_State)
 {
     delete(self.grids)
 }
+
+grid_find :: proc(self: ^Grid_State, grid: int) -> ^Grid
+{
+    count := len(self.grids)
+
+    if 0 <= grid && grid < count {
+        return &self.grids[grid]
+    }
+
+    return nil
+}

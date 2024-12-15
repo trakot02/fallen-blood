@@ -27,7 +27,6 @@ Main_Scene :: struct
     player: int,
 
     state: int,
-    active_grid: int,
 }
 
 main_scene_on_key_release :: proc(event: sdl.KeyboardEvent, self: ^Main_Scene)
@@ -169,15 +168,17 @@ main_scene_load :: proc(self: ^Main_Scene) -> bool
     player.motion.speed = 128
     player.camera       = &self.camera
 
-    value := pax.grid_find_value(&self.grid.grids[self.active_grid], 0, 3,
-        pax.point_to_cell(&self.grid.grids[self.active_grid], player.sprite.point))
+    grid := pax.grid_find(&self.grid, player.motion.grid)
+
+    value := pax.grid_find_value(grid, 0, 3,
+        pax.point_to_cell(grid, player.sprite.point))
 
     if value == nil { return false }
 
     value^ = self.player
 
     self.camera.size   = WINDOW_SIZE
-    self.camera.offset = WINDOW_SIZE / 2 - self.grid.grids[self.active_grid].tile / 2
+    self.camera.offset = WINDOW_SIZE / 2 - grid.tile / 2
     self.camera.scale  = {4, 4}
 
     pax.window_resize(self.window, [2]int {
@@ -229,12 +230,20 @@ main_scene_step :: proc(self: ^Main_Scene, delta: f32)
             case {-1, -1}: player.sprite.frame = 7
         }
 
-        for layer in 0 ..< len(self.grid.grids[self.active_grid].stacks[0]) {
-            angle = motion_test(&player.motion, &self.grid.grids[self.active_grid], angle, 0, layer)
+        grid       := pax.grid_find(&self.grid, player.motion.grid)
+        grid_index := player.motion.grid
+
+        grid_index += 1
+        grid_index %= 2
+
+        for layer in 0 ..< len(grid.stacks[0]) {
+            angle = motion_test(&player.motion, &self.grid, angle, 0, layer)
         }
 
-        if motion_step(&player.motion, &self.grid.grids[self.active_grid], angle, delta) {
-            motion_grid(&player.motion, &self.grid.grids[self.active_grid], angle, 0, 3)
+        motion_gate(&player.motion, &self.grid, 0, 3, grid_index)
+
+        if motion_step(&player.motion, &self.grid, angle, delta) {
+            motion_grid(&player.motion, &self.grid, angle, 0, 3)
         }
 
         player.sprite.point = {
@@ -250,8 +259,11 @@ main_scene_step :: proc(self: ^Main_Scene, delta: f32)
 
 main_scene_draw_sprite_layer :: proc(self: ^Main_Scene, layer: int, cell: [2]int)
 {
-    value := pax.grid_find_value(&self.grid.grids[self.active_grid], 1, layer, cell)
-    point := pax.cell_to_point(&self.grid.grids[self.active_grid], cell)
+    grid := pax.grid_find(&self.grid,
+        pax.group_find(&self.player_group, self.player).motion.grid)
+
+    value := pax.grid_find_value(grid, 1, layer, cell)
+    point := pax.cell_to_point(grid, cell)
 
     if value == nil { return }
 
@@ -266,8 +278,11 @@ main_scene_draw_sprite_layer :: proc(self: ^Main_Scene, layer: int, cell: [2]int
 
 main_scene_draw_player_layer :: proc(self: ^Main_Scene, layer: int, cell: [2]int)
 {
-    value := pax.grid_find_value(&self.grid.grids[self.active_grid], 1, layer, cell)
-    point := pax.cell_to_point(&self.grid.grids[self.active_grid], cell)
+    grid := pax.grid_find(&self.grid,
+        pax.group_find(&self.player_group, self.player).motion.grid)
+
+    value := pax.grid_find_value(grid, 1, layer, cell)
+    point := pax.cell_to_point(grid, cell)
 
     if value == nil { return }
 
@@ -280,9 +295,12 @@ main_scene_draw_player_layer :: proc(self: ^Main_Scene, layer: int, cell: [2]int
 
 main_scene_draw :: proc(self: ^Main_Scene)
 {
+    grid := pax.grid_find(&self.grid,
+        pax.group_find(&self.player_group, self.player).motion.grid)
+
     sdl.RenderClear(self.render.renderer)
 
-    area := pax.camera_grid_area(&self.camera, &self.grid.grids[self.active_grid])
+    area := pax.camera_grid_area(&self.camera, grid)
 
     for row in area[0].y ..= area[1].y {
         for col in area[0].x ..= area[1].x {
