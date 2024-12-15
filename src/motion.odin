@@ -109,10 +109,28 @@ motion_grid :: proc(self: ^Motion, grid: ^pax.Grid_State, step: [2]int, stack: i
     }
 }
 
-motion_gate :: proc(self: ^Motion, grid: ^pax.Grid_State, stack: int, layer: int, move: int)
+motion_gate :: proc(self: ^Motion, grid: ^pax.Grid_State, stack: int, layer: int) -> ^pax.Grid_Gate
 {
     active := pax.grid_find(grid, self.grid)
-    dest   := pax.grid_find(grid, move)
+    cell   := pax.point_to_cell(active, [2]int {
+        int(self.point.x), int(self.point.y),
+    })
+
+    curr := pax.grid_find_value(active, stack, layer, cell)
+
+    if curr != nil && curr^ >= 0 {
+        if curr^ < len(active.gates) {
+            return &active.gates[curr^]
+        }
+    }
+
+    return nil
+}
+
+motion_change :: proc(self: ^Motion, grid: ^pax.Grid_State, stack: int, layer: int, gate: pax.Grid_Gate)
+{
+    active := pax.grid_find(grid, self.grid)
+    dest   := pax.grid_find(grid, gate.grid)
 
     if self.state != .STILL { return }
 
@@ -120,27 +138,29 @@ motion_gate :: proc(self: ^Motion, grid: ^pax.Grid_State, stack: int, layer: int
         int(self.point.x), int(self.point.y),
     })
 
-    other := cell
+    curr := pax.grid_find_value(active, stack, layer, cell)
+    next := pax.grid_find_value(dest,   stack, layer, gate.cell + gate.step)
 
-    if cell == {1, 5} {
-        other  = {3, 3}
-        pixel := pax.cell_to_point(dest, other)
+    point := pax.cell_to_point(dest, gate.cell)
+    step  := pax.cell_to_point(dest, gate.step)
 
-        point := [2]f32 {
-            f32(pixel.x), f32(pixel.y),
+    if next != nil && curr != nil {
+        self.point = [2]f32 {
+            f32(point.x), f32(point.y),
         }
 
-        curr := pax.grid_find_value(active, stack, layer, cell)
-        next := pax.grid_find_value(dest,   stack, layer, other)
-
-        if next != nil && curr != nil {
-            self.point  = point
-            self.target = point
-
-            next^ = curr^
-            curr^ = -1
-
-            self.grid = move
+        self.target = self.point + [2]f32 {
+            f32(step.x), f32(step.y),
         }
+
+        next^ = curr^
+        curr^ = -1
+
+        self.normal = linalg.normalize([2]f32 {
+            f32(step.x), f32(step.y),
+        })
+
+        self.grid  = gate.grid
+        self.state = .MOVING
     }
 }

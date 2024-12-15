@@ -230,17 +230,17 @@ main_scene_step :: proc(self: ^Main_Scene, delta: f32)
             case {-1, -1}: player.sprite.frame = 7
         }
 
-        grid       := pax.grid_find(&self.grid, player.motion.grid)
-        grid_index := player.motion.grid
-
-        grid_index += 1
-        grid_index %= 2
+        grid := pax.grid_find(&self.grid, player.motion.grid)
 
         for layer in 0 ..< len(grid.stacks[0]) {
             angle = motion_test(&player.motion, &self.grid, angle, 0, layer)
         }
 
-        motion_gate(&player.motion, &self.grid, 0, 3, grid_index)
+        gate := motion_gate(&player.motion, &self.grid, 2, 0)
+
+        if gate != nil {
+            motion_change(&player.motion, &self.grid, 0, 3, gate^)
+        }
 
         if motion_step(&player.motion, &self.grid, angle, delta) {
             motion_grid(&player.motion, &self.grid, angle, 0, 3)

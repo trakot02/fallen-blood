@@ -8,12 +8,20 @@ import "core:os"
 Grid_Layer :: []int
 Grid_Stack :: []int
 
+Grid_Gate :: struct
+{
+    grid: int,
+    cell: [2]int,
+    step: [2]int,
+}
+
 Grid :: struct
 {
     tile:   [2]int,
     size:   [2]int,
     layers: []Grid_Layer,
     stacks: []Grid_Stack,
+    gates:  []Grid_Gate,
 }
 
 grid_find_stack :: proc(self: ^Grid, stack: int) -> ^Grid_Stack
