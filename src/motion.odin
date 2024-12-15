@@ -102,10 +102,8 @@ motion_grid :: proc(self: ^Motion, grid: ^pax.Grid_State, step: [2]int, stack: i
     next := pax.grid_find_value(active, stack, layer, cell + step)
 
     if curr != nil && next != nil {
-        temp := curr^
-
-        curr^ = next^
-        next^ = temp
+        next^ = curr^
+        curr^ = -1
     }
 }
 
@@ -153,14 +151,17 @@ motion_change :: proc(self: ^Motion, grid: ^pax.Grid_State, stack: int, layer: i
             f32(step.x), f32(step.y),
         }
 
+        if gate.step != {} {
+            self.normal = linalg.normalize([2]f32 {
+                f32(step.x), f32(step.y),
+            })
+
+            self.state = .MOVING
+        }
+
         next^ = curr^
         curr^ = -1
 
-        self.normal = linalg.normalize([2]f32 {
-            f32(step.x), f32(step.y),
-        })
-
-        self.grid  = gate.grid
-        self.state = .MOVING
+        self.grid = gate.grid
     }
 }
