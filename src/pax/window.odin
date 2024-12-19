@@ -8,57 +8,70 @@ import sdl "vendor:sdl2"
 
 Window :: struct
 {
-    raw: ^sdl.Window,
+    data: rawptr,
 
     close: Signal(Empty_Event),
 }
 
-window_init :: proc(self: ^Window, title: string, size: [2]int, allocator := context.allocator)
+window_init :: proc(self: ^Window, allocator := context.allocator) -> bool
 {
-    temp        := context.temp_allocator
-    cstr, error := strings.clone_to_cstring(title, temp)
-
-    if error != nil {
-        log.errorf("Unable to create temporary string\n")
-
-        return
-    }
-
-    flags := sdl.WindowFlags {.HIDDEN}
-
-    self.raw = sdl.CreateWindow(cstr,
+    self.data = auto_cast sdl.CreateWindow("",
         sdl.WINDOWPOS_CENTERED,
         sdl.WINDOWPOS_CENTERED,
-        i32(size.x), i32(size.y), flags)
+        320, 180, {.HIDDEN})
 
-    mem.delete(cstr, temp)
+    if self.data == nil {
+        log.errorf("SDL: %v\n", sdl.GetErrorString())
 
-    if self.raw == nil {
-        log.errorf("SDL: %v\n",
-            sdl.GetErrorString())
-
-        return
+        return false
     }
+
+    return true
 }
 
 window_destroy :: proc(self: ^Window)
 {
-    sdl.DestroyWindow(self.raw)
+    sdl.DestroyWindow(auto_cast self.data)
+
+    self.data = nil
 }
 
 window_show :: proc(self: ^Window)
 {
-    sdl.ShowWindow(self.raw)
+    sdl.ShowWindow(auto_cast self.data)
 }
 
 window_hide :: proc(self: ^Window)
 {
-    sdl.HideWindow(self.raw)
+    sdl.HideWindow(auto_cast self.data)
 }
 
-window_resize :: proc(self: ^Window, size: [2]int)
+window_set_title :: proc(self: ^Window, name: string)
 {
-    sdl.SetWindowSize(self.raw, i32(size.x), i32(size.y))
+    alloc := context.temp_allocator
+
+    clone, error := strings.clone_to_cstring(name, alloc)
+
+    if error != nil {
+        log.errorf("Unable to clone %q to c-string\n", name)
+
+        return
+    }
+
+    sdl.SetWindowTitle(auto_cast self.data, clone)
+    sdl.SetWindowBordered(auto_cast self.data, true)
+
+    mem.free_all(alloc)
+}
+
+window_set_size :: proc(self: ^Window, size: [2]int)
+{
+    sdl.SetWindowSize(auto_cast self.data, i32(size.x), i32(size.y))
+}
+
+window_set_point :: proc(self: ^Window, point: [2]int)
+{
+    sdl.SetWindowPosition(auto_cast self.data, i32(point.x), i32(point.y))
 }
 
 window_emit :: proc(self: ^Window, event: sdl.Event)

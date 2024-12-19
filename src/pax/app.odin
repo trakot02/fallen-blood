@@ -3,7 +3,8 @@ package pax
 import "core:log"
 import "core:time"
 
-import sdl "vendor:sdl2"
+import sdl  "vendor:sdl2"
+import sdli "vendor:sdl2/image"
 
 App_Config :: struct
 {
@@ -28,22 +29,44 @@ app_init :: proc(self: ^App, allocator := context.allocator)
 app_destroy :: proc(self: ^App)
 {
     delete(self.scenes)
+
+    self.stage = {}
+    self.tick  = {}
 }
 
-app_push :: proc(self: ^App, scene: Scene) -> bool
+app_insert :: proc(self: ^App, scene: Scene) -> int
 {
-    _, error := append(&self.scenes, scene)
+    index, error := append(&self.scenes, scene)
 
     if error != nil {
         log.errorf("Unable to insert a scene\n")
+
+        return 0
     }
 
-    return error == nil
+    return index + 1
+}
+
+app_remove :: proc(self: ^App, scene: int)
+{
+    assert(false, "Not implemented yet")
 }
 
 app_clear :: proc(self: ^App)
 {
     clear(&self.scenes)
+}
+
+app_find :: proc(self: ^App, scene: int) -> ^Scene
+{
+    count := len(self.scenes)
+    index := scene - 1
+
+    if 0 <= index && index < count {
+        return &self.scenes[index]
+    }
+
+    return nil
 }
 
 app_start :: proc(self: ^App) -> bool
@@ -55,7 +78,7 @@ app_start :: proc(self: ^App) -> bool
 
     if state == true {
         for idx := 0; idx < count; idx += 1 {
-            state = scene_start(&self.scenes[idx], self.stage.instance)
+            state = scene_start(&self.scenes[idx], &self.stage)
 
             if state == false {
                 index = idx
@@ -84,28 +107,25 @@ app_stop :: proc(self: ^App)
 
 app_elapsed :: proc(self: ^App) -> i64
 {
-    durat := time.tick_lap_time(&self.tick)
-    nano  := time.duration_nanoseconds(durat)
+    diff := time.tick_lap_time(&self.tick)
+    nano := time.duration_nanoseconds(diff)
 
     return nano
 }
 
 app_loop :: proc(self: ^App, stage: Stage, config: App_Config) -> bool
 {
-    count := len(self.scenes)
+    scene := app_find(self, config.first_scene)
 
-    if config.first_scene < 0 || config.first_scene >= count {
-        return false
-    }
+    if scene == nil { return false }
 
-    scene := &self.scenes[config.first_scene]
+    frame_rate: i64 = i64(config.frame_rate)
+    frame_skip: i64 = i64(config.frame_skip)
+    frame_time: i64 = 1_000_000_000 / frame_rate
 
-    frame_rate : i64 = i64(config.frame_rate)
-    frame_skip : i64 = i64(config.frame_skip)
-    frame_time : i64 = 1_000_000_000 / frame_rate
-
-    delta : f32 = 1 / f32(frame_rate)
-    elaps : i64 = 0
+    delta: f32 = 1 / f32(frame_rate)
+    elaps: i64 = 0
+    input: int = 0
 
     self.stage = stage
 
@@ -113,7 +133,7 @@ app_loop :: proc(self: ^App, stage: Stage, config: App_Config) -> bool
 
     scene_enter(scene)
 
-    for loops : i64 = 0; true; loops = 0 {
+    for loops: i64 = 0; true && input >= 0; loops = 0 {
         elaps += app_elapsed(self)
 
         for frame_time < elaps && loops < frame_skip {
@@ -125,17 +145,17 @@ app_loop :: proc(self: ^App, stage: Stage, config: App_Config) -> bool
 
         scene_draw(scene)
 
-        value := scene_input(scene)
-        index := value - 1
+        input = scene_input(scene)
 
-        if value < 0 { break }
+        if input > 0 {
+            next := app_find(self, input)
 
-        if 0 < value && value <= count {
-            scene_leave(scene)
+            if next != nil {
+                scene_leave(scene)
+                scene_enter(next)
 
-            scene = &self.scenes[index]
-
-            scene_enter(scene)
+                scene = next
+            }
         }
     }
 
@@ -143,4 +163,80 @@ app_loop :: proc(self: ^App, stage: Stage, config: App_Config) -> bool
     app_stop(self)
 
     return true
+}
+
+Stage :: struct
+{
+    instance: rawptr,
+
+    proc_start: proc(self: rawptr) -> bool,
+    proc_stop:  proc(self: rawptr),
+}
+
+stage_start :: proc(self: ^Stage)-> bool
+{
+    return self.proc_start(self.instance)
+}
+
+stage_stop :: proc(self: ^Stage)
+{
+    self.proc_stop(self.instance)
+}
+
+Scene :: struct
+{
+    instance: rawptr,
+
+    proc_start: proc(self: rawptr, stage: rawptr) -> bool,
+    proc_stop:  proc(self: rawptr),
+    proc_enter: proc(self: rawptr),
+    proc_leave: proc(self: rawptr),
+    proc_input: proc(self: rawptr, event: sdl.Event) -> int,
+    proc_step:  proc(self: rawptr, delta: f32),
+    proc_draw:  proc(self: rawptr),
+}
+
+scene_start :: proc(self: ^Scene, stage: ^Stage) -> bool
+{
+    return self.proc_start(self.instance, stage.instance)
+}
+
+scene_stop :: proc(self: ^Scene)
+{
+    self.proc_stop(self.instance)
+}
+
+scene_enter :: proc(self: ^Scene)
+{
+    self.proc_enter(self.instance)
+}
+
+scene_leave :: proc(self: ^Scene)
+{
+    self.proc_leave(self.instance)
+}
+
+scene_input :: proc(self: ^Scene) -> int
+{
+    event: sdl.Event
+
+    for sdl.PollEvent(&event) {
+        value := self.proc_input(self.instance, event)
+
+        if value != 0 {
+            return value
+        }
+    }
+
+    return 0
+}
+
+scene_step :: proc(self: ^Scene, delta: f32)
+{
+    self.proc_step(self.instance, delta)
+}
+
+scene_draw :: proc(self: ^Scene)
+{
+    self.proc_draw(self.instance)
 }
