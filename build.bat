@@ -1,3 +1,3 @@
 @echo off
 
-odin run src -out:out/pax.exe -debug
+odin build src -out:out/pax.exe -debug

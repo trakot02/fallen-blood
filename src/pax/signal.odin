@@ -51,10 +51,10 @@ signal_insert_proc_empty :: proc(self: ^Signal(Empty_Event), call: proc()) -> bo
     return error == nil
 }
 
-signal_insert_pair :: proc(self: ^Signal($T), instance: ^$U, call: proc(T, ^U)) -> bool
+signal_insert_pair :: proc(self: ^Signal($T), inst: ^$U, call: proc(T, ^U)) -> bool
 {
     _, error := append(&self.chain, Listener {
-        instance  = auto_cast instance,
+        instance  = auto_cast inst,
         proc_call = auto_cast call,
     })
 
@@ -65,10 +65,10 @@ signal_insert_pair :: proc(self: ^Signal($T), instance: ^$U, call: proc(T, ^U)) 
     return error == nil
 }
 
-signal_insert_pair_empty :: proc(self: ^Signal(Empty_Event), instance: ^$U, call: proc(^U)) -> bool
+signal_insert_pair_empty :: proc(self: ^Signal(Empty_Event), inst: ^$U, call: proc(^U)) -> bool
 {
     _, error := append(&self.chain, Listener {
-        instance  = auto_cast instance,
+        instance  = auto_cast inst,
         proc_call = auto_cast call,
     })
 
@@ -108,11 +108,11 @@ signal_remove_proc_empty :: proc(self: ^Signal(Empty_Event), call: proc())
     }
 }
 
-signal_remove_pair :: proc(self: ^Signal($T), instance: ^$U, call: proc(T, ^U))
+signal_remove_pair :: proc(self: ^Signal($T), inst: ^$U, call: proc(T, ^U))
 {
     for value, index in self.chain {
         if value.proc_call == rawptr(call) &&
-           value.instance  == rawptr(instance) {
+           value.instance  == rawptr(inst) {
             unordered_remove(&self.chain, index)
 
             return
@@ -120,11 +120,11 @@ signal_remove_pair :: proc(self: ^Signal($T), instance: ^$U, call: proc(T, ^U))
     }
 }
 
-signal_remove_pair_empty :: proc(self: ^Signal(Empty_Event), instance: ^$U, call: proc(^U))
+signal_remove_pair_empty :: proc(self: ^Signal(Empty_Event), inst: ^$U, call: proc(^U))
 {
     for value, index in self.chain {
         if value.proc_call == rawptr(call) &&
-           value.instance  == rawptr(instance) {
+           value.instance  == rawptr(inst) {
             unordered_remove(&self.chain, index)
 
             return

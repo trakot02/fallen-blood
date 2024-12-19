@@ -1,1 +1,1 @@
-odin run src -out:out/pax -debug
+odin build src -out:out/pax -debug

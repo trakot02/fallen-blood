@@ -7,37 +7,37 @@ import sdli "vendor:sdl2/image"
 
 import "pax"
 
-WINDOW_TITLE :: "Fallen Blood"
-WINDOW_SIZE  :: [2]int {320, 180}
-
 Game_Stage :: struct
 {
-    window: pax.Window,
+    window:   pax.Window,
+    renderer: pax.Renderer,
 }
 
 game_stage_start :: proc(self: ^Game_Stage) -> bool
 {
     if sdl.Init(sdl.INIT_VIDEO) != 0 {
-        log.errorf("SDL: %v",
-            sdl.GetErrorString())
+        log.errorf("SDL: %v",  sdl.GetErrorString())
 
         return false
     }
 
     if sdli.Init(sdli.INIT_PNG) != sdli.INIT_PNG {
-        log.errorf("SDL: %v",
-            sdl.GetErrorString())
+        log.errorf("SDL: %v", sdl.GetErrorString())
 
         return false
     }
 
-    pax.window_init(&self.window, WINDOW_TITLE, WINDOW_SIZE)
+    if pax.window_init(&self.window)                   == false { return false }
+    if pax.renderer_init(&self.renderer, &self.window) == false { return false }
 
     return true
 }
 
 game_stage_stop :: proc(self: ^Game_Stage)
 {
+    pax.renderer_destroy(&self.renderer)
+    pax.window_destroy(&self.window)
+
     sdli.Quit()
     sdl.Quit()
 }

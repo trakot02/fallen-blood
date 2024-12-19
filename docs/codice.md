@@ -17,7 +17,7 @@ Dopodiché nell'aggiornamento delle scene i gruppi vengono aggiornati a mano.
 ```odin
 group_x_step :: proc(group: ^Group_X, delta: f64)
 {
-    actor : i32
+    actor: i32
 
     for ; actor < group.size; actor += 1 {
         a := group.a[actor]

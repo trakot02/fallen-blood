@@ -5,15 +5,15 @@ import "core:log"
 import "core:encoding/json"
 import "core:os"
 
-Grid_Layer :: []int
-Grid_Stack :: []int
-
 Grid_Gate :: struct
 {
     grid: int,
     cell: [2]int,
     step: [2]int,
 }
+
+Grid_Layer :: []int
+Grid_Stack :: []int
 
 Grid :: struct
 {
@@ -24,24 +24,19 @@ Grid :: struct
     gates:  []Grid_Gate,
 }
 
-grid_find_stack :: proc(self: ^Grid, stack: int) -> ^Grid_Stack
-{
-    count := len(self.stacks)
-
-    if 0 <= stack && stack < count {
-        return &self.stacks[stack]
-    }
-
-    return nil
-}
-
 grid_find_layer :: proc(self: ^Grid, stack: int, layer: int) -> ^Grid_Layer
 {
-    count := len(self.layers)
-    stk   := grid_find_stack(self, stack)
+    stack_count := len(self.stacks)
+    stack_index := stack - 1
+    layer_count := len(self.layers)
+    layer_index := layer - 1
 
-    if stk != nil && 0 <= layer && layer < count {
-        return &self.layers[stk[layer]]
+    if 0 <= stack_index && stack_index < stack_count {
+        stack := &self.stacks[stack_index]
+
+        if 0 <= layer_index && layer_index < layer_count {
+            return &self.layers[stack[layer_index] - 1]
+        }
     }
 
     return nil
@@ -50,14 +45,22 @@ grid_find_layer :: proc(self: ^Grid, stack: int, layer: int) -> ^Grid_Layer
 grid_find_value :: proc(self: ^Grid, stack: int, layer: int, cell: [2]int) -> ^int
 {
     index := cell_to_index(self, cell)
-    lyr   := grid_find_layer(self, stack, layer)
 
     if cell.x < 0 || cell.x >= self.size.x ||
        cell.y < 0 || cell.y >= self.size.y { return nil }
 
-    if lyr == nil { return nil }
+    values := grid_find_layer(self, stack, layer)
 
-    return &lyr[index]
+    if values != nil {
+        return &values[index]
+    }
+
+    return nil
+}
+
+grid_find :: proc {
+    grid_find_layer,
+    grid_find_value,
 }
 
 cell_to_point :: proc(self: ^Grid, cell: [2]int) -> [2]int
@@ -80,29 +83,34 @@ index_to_cell :: proc(self: ^Grid, index: int) -> [2]int
     return {index % self.size.x, index / self.size.x}
 }
 
-Grid_Reader :: struct
+Grid_Resource :: struct
 {
     allocator: mem.Allocator,
 }
 
-grid_read :: proc(self: ^Grid_Reader, name: string) -> (Grid, bool)
+grid_clear :: proc(self: ^Grid_Resource, value: ^Grid)
+{
+    mem.free_all(self.allocator)
+}
+
+grid_read :: proc(self: ^Grid_Resource, name: string) -> (Grid, bool)
 {
     spec  := json.DEFAULT_SPECIFICATION
-    temp  := context.temp_allocator
+    alloc := context.temp_allocator
     value := Grid {}
 
-    data, succ := os.read_entire_file_from_filename(name, temp)
+    bytes, state := os.read_entire_file_from_filename(name, alloc)
 
-    if succ == false {
+    if state == false {
         log.errorf("Unable to open %q for reading\n",
             name)
 
         return {}, false
     }
 
-    error := json.unmarshal(data, &value, spec, self.allocator)
+    error := json.unmarshal(bytes, &value, spec, self.allocator)
 
-    mem.free_all(temp)
+    mem.free_all(alloc)
 
     switch type in error {
         case json.Error: log.errorf("Unable to parse JSON\n")
@@ -124,40 +132,19 @@ grid_read :: proc(self: ^Grid_Reader, name: string) -> (Grid, bool)
         }
     }
 
-    if error != nil {
-        return {}, false
-    }
+    if error != nil { return {}, false }
 
     return value, true
 }
 
-grid_clear :: proc(self: ^Grid_Reader, value: ^Grid)
+grid_resource :: proc(self: ^Grid_Resource) -> Resource(Grid)
 {
-    mem.free_all(self.allocator)
-}
+    value := Resource(Grid) {}
 
-Grid_State :: struct
-{
-    grids: [dynamic]Grid,
-}
+    value.instance = auto_cast self
 
-grid_init :: proc(self: ^Grid_State, allocator := context.allocator)
-{
-    self.grids = make([dynamic]Grid, allocator)
-}
+    value.clear_proc = auto_cast grid_clear
+    value.read_proc  = auto_cast grid_read
 
-grid_destroy :: proc(self: ^Grid_State)
-{
-    delete(self.grids)
-}
-
-grid_find :: proc(self: ^Grid_State, grid: int) -> ^Grid
-{
-    count := len(self.grids)
-
-    if 0 <= grid && grid < count {
-        return &self.grids[grid]
-    }
-
-    return nil
+    return value
 }
